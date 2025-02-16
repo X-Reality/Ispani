@@ -43,8 +43,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'ispani.urls'
-AUTH_USER_MODEL = 'app.StudentProfile'  
+ROOT_URLCONF = 'backend.urls'
+AUTH_USER_MODEL = 'myapp.StudentProfile'  
 
 TEMPLATES = [
     {
@@ -62,7 +62,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'ispani.wsgi.application'
+WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # Database
@@ -122,4 +122,4 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-ASGI_APPLICATION = "myproject.asgi.application"
+ASGI_APPLICATION = "backend.asgi.application"
