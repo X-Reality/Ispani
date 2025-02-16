@@ -1,5 +1,5 @@
 from django.urls import path, re_path
-from app.views import * 
+from myapp.views import * 
 from . import consumers
 
 
