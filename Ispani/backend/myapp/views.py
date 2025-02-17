@@ -20,14 +20,14 @@ class StudentProfileListCreate(generics.ListCreateAPIView):
 
 class SignUpView(APIView):
     permission_classes = [AllowAny]
-    
+
     def post(self, request):
         # Extracting data from request
         username = request.data.get('username')
         password = request.data.get('password')
         email = request.data.get('email')
         name = request.data.get('name')
-        role = request.data.get('role', 'student') 
+        role = request.data.get('role', 'student')
         year_of_study = request.data.get('year_of_study')
         field_of_study = request.data.get('field_of_study')
         interests = request.data.get('interests')
@@ -65,8 +65,8 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        logout(request)
-        return Response({"message": "Logout successful"})
+        # Optionally, you can add token invalidation logic here
+        return Response({"message": "Logout successful. Please delete the token on the client side."})
     
 
 class UserDetailView(APIView):
@@ -87,7 +87,18 @@ class GroupListCreate(generics.ListCreateAPIView):
 class MessageListCreate(generics.ListCreateAPIView):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        group = serializer.validated_data['group']
+        user = self.request.user  # Directly use request.user (StudentProfile)
+
+        # Ensure the user is a member of the group
+        if not group.members.filter(id=user.id).exists():
+            raise ValidationError("You are not a member of this group and cannot send messages here.")
+
+        # Automatically set the sender to the currently logged-in user
+        serializer.save(sender=user)
 
 @api_view(['POST'])
 def join_group(request):
@@ -122,3 +133,23 @@ class LoginView(APIView):
         else:
             print("Authentication failed")  # Debugging
             return Response({"error": "Invalid credentials or user is not active"}, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['GET'])
+def study_groups(request):
+    """
+    Returns only study-related groups.
+    """
+    # Filter groups that have both `field_of_study` and `year_of_study` set.
+    study_groups = Group.objects.filter(field_of_study__isnull=False, year_of_study__isnull=False)
+    serializer = GroupSerializer(study_groups, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def interest_groups(request):
+    """
+    Returns only interest-related groups.
+    """
+    # Filter groups that have `field_of_study` and `year_of_study` set to None.
+    interest_groups = Group.objects.filter(field_of_study__isnull=True, year_of_study__isnull=True)
+    serializer = GroupSerializer(interest_groups, many=True)
+    return Response(serializer.data)
