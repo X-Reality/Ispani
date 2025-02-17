@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import StudentProfile, Group, Message
+from .models import StudentProfile, Group, Message, TutorProfile, TutoringSession, Booking,SubjectSpecialization
 from rest_framework.exceptions import ValidationError
 
 class StudentProfileSerializer(serializers.ModelSerializer):
@@ -110,3 +110,100 @@ class JoinGroupSerializer(serializers.Serializer):
         student = self.context['request'].user
         group.members.add(student)
         return group
+    
+
+class TutorSignupSerializer(serializers.ModelSerializer):
+    subject_specializations = serializers.ListField(
+        child=serializers.CharField(max_length=100), required=True
+    )
+    available_times = serializers.CharField(required=True)
+    
+    class Meta:
+        model = TutorProfile
+        fields = ['subject_specializations', 'available_times']
+
+    def validate(self, data):
+        # Ensure the user is not already a tutor
+        user = self.context['request'].user
+        if hasattr(user, 'tutor_profile'):
+            raise ValidationError("You are already a tutor.")
+        return data
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        # Create the tutor profile
+        tutor_profile = TutorProfile.objects.create(
+            tutor=user,
+            available_times=validated_data['available_times']
+        )
+        
+        # Create and add subjects
+        subject_names = validated_data['subject_specializations']
+        subjects = []
+        for subject_name in subject_names:
+            subject, created = SubjectSpecialization.objects.get_or_create(name=subject_name)
+            subjects.append(subject)
+        tutor_profile.subjects.set(subjects)
+
+        return tutor_profile
+    
+class TutorProfileSerializer(serializers.ModelSerializer):
+    tutor = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
+    subjects = serializers.PrimaryKeyRelatedField(queryset=SubjectSpecialization.objects.all(), many=True)
+    available_times = serializers.CharField()
+    is_approved = serializers.BooleanField(default=False, read_only=True)  # Not editable by user
+
+    class Meta:
+        model = TutorProfile
+        fields = ['id', 'tutor', 'subjects', 'available_times', 'is_approved']
+
+    def create(self, validated_data):
+        tutor_profile = TutorProfile.objects.create(
+            tutor=validated_data['tutor'],
+            available_times=validated_data['available_times'],
+            is_approved=False,  # New tutors are not approved by default
+        )
+        tutor_profile.subjects.set(validated_data['subjects'])
+        return tutor_profile
+
+
+# TutoringSession Serializer
+class TutoringSessionSerializer(serializers.ModelSerializer):
+    tutor = TutorProfileSerializer(read_only=True)
+    student = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
+    
+    class Meta:
+        model = TutoringSession
+        fields = ['id', 'tutor', 'student', 'subject', 'date', 'duration', 'status']
+
+    def create(self, validated_data):
+        tutor_profile = validated_data.get('tutor')
+        student = validated_data.get('student')
+
+        # Ensure the student isn't booking a session with themselves
+        if tutor_profile.tutor == student:
+            raise ValidationError("A student cannot book a session with themselves.")
+
+        return super().create(validated_data)
+
+# Booking Serializer
+class BookingSerializer(serializers.ModelSerializer):
+    student = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
+    tutor = serializers.PrimaryKeyRelatedField(queryset=TutorProfile.objects.all())
+    session = serializers.PrimaryKeyRelatedField(queryset=TutoringSession.objects.all())
+
+    class Meta:
+        model = Booking
+        fields = ['id', 'student', 'tutor', 'session', 'status']
+
+    def create(self, validated_data):
+        # Ensure the session is available for booking (not already booked)
+        session = validated_data.get('session')
+        if session.status == 'completed':
+            raise ValidationError("This session has already been completed.")
+
+        # Ensure the tutor is available for the session
+        if validated_data.get('tutor').tutor != session.tutor.tutor:
+            raise ValidationError("This tutor is not available for the selected session.")
+
+        return super().create(validated_data)

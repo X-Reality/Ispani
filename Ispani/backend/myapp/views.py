@@ -7,9 +7,10 @@ from rest_framework import status, generics
 from rest_framework.decorators import api_view
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import StudentProfile, Group, Message
-from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer
+from .models import StudentProfile, Group, Message,TutorProfile,TutoringSession, Booking,SubjectSpecialization
+from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer, TutoringSessionSerializer,TutorProfileSerializer,BookingSerializer,TutorSignupSerializer
 import logging
+from rest_framework.exceptions import PermissionDenied
 
 logger = logging.getLogger(__name__)
 
@@ -154,3 +155,48 @@ def interest_groups(request):
     interest_groups = Group.objects.filter(field_of_study__isnull=True, year_of_study__isnull=True)
     serializer = GroupSerializer(interest_groups, many=True)
     return Response(serializer.data)
+
+class TutorSignupView(APIView):
+    def post(self, request):
+        serializer = TutorSignupSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            # Create the tutor profile
+            tutor_profile = serializer.save()
+            return Response({
+                "message": "Tutor registration successful",
+                "data": {
+                    "available_times": tutor_profile.available_times,
+                    "subjects": [subject.name for subject in tutor_profile.subjects.all()]
+                }
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class TutorSessionCreateView(APIView):
+    def post(self, request, *args, **kwargs):
+        tutor_profile = request.user.tutor_profile  # Assuming user is a StudentProfile with TutorProfile
+
+        # Check if the tutor is approved
+        if not tutor_profile.is_approved:
+            raise PermissionDenied("Your tutor profile is awaiting admin approval.")
+# View for listing available tutors
+class AvailableTutorsView(generics.ListAPIView):
+    queryset = TutorProfile.objects.all()
+    serializer_class = TutorProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+# View for booking a tutor
+class BookTutorView(generics.CreateAPIView):
+    queryset = Booking.objects.all()
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+# View for viewing all booked sessions
+class StudentSessionsView(generics.ListAPIView):
+    queryset = TutoringSession.objects.all()
+    serializer_class = TutoringSessionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return self.queryset.filter(student=self.request.user)
+

@@ -12,6 +12,10 @@ urlpatterns = [
     path('interest-groups/', interest_groups, name='interest-groups'),
     path('messages/', MessageListCreate.as_view(), name='message-list-create'),
     path('join-group/', join_group, name='join-group'),
+    path('tutor_signup/', TutorSignupView.as_view(), name='tutor_signup'),
+    path('available-tutors/',AvailableTutorsView.as_view(), name='available-tutors'),
+    path('book-tutor/', BookTutorView.as_view(), name='book-tutor'),
+    path('my-sessions/', StudentSessionsView.as_view(), name='my-sessions'),
 ]
 
 websocket_urlpatterns = [
