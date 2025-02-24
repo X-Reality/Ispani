@@ -7,8 +7,8 @@ from rest_framework import status, generics
 from rest_framework.decorators import api_view
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import StudentProfile, Group, Message,TutorProfile,TutoringSession, Booking,SubjectSpecialization
-from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer, TutoringSessionSerializer,TutorProfileSerializer,BookingSerializer,TutorSignupSerializer
+from .models import StudentProfile, Group, Message, TutorProfile, TutoringSession, Booking, SubjectSpecialization, Interest
+from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer, TutoringSessionSerializer, TutorProfileSerializer, BookingSerializer, TutorSignupSerializer, InterestSerializer
 import logging
 from rest_framework.exceptions import PermissionDenied
 
@@ -19,40 +19,43 @@ class StudentProfileListCreate(generics.ListCreateAPIView):
     serializer_class = StudentProfileSerializer
     permission_classes = [AllowAny]
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import StudentProfile, Interest
+from .serializers import StudentProfileSerializer
+from django.contrib.auth import get_user_model
 
 class SignUpView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # Extracting data from request
+        # Get the data for creating a new user (sign-up)
         username = request.data.get('username')
         password = request.data.get('password')
         email = request.data.get('email')
-        name = request.data.get('name')
-        role = request.data.get('role', 'student')
-        year_of_study = request.data.get('year_of_study')
-        field_of_study = request.data.get('field_of_study')
-        interests = request.data.get('interests')
-        desired_jobs = request.data.get('desired_jobs')
-
+        first_name = request.data.get('first_name')
+        interests = request.data.get('interests', [])  # List of interest IDs or names
+        
         # Check if the username already exists
         if StudentProfile.objects.filter(username=username).exists():
             return Response({"detail": "Username already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create the StudentProfile (user)
+        # Create the new student user (StudentProfile) using the information
         user = StudentProfile.objects.create_user(
             username=username,
             password=password,
             email=email,
-            first_name=name,  # Use first_name for the name field
-            role=role,
-            year_of_study=year_of_study,
-            field_of_study=field_of_study,
-            interests=interests,
-            desired_jobs=desired_jobs
+            first_name=first_name,
         )
-        user.is_active = True
         user.save()
+
+        # If the user provided interests, associate them with the user
+        if interests:
+            user_interests = Interest.objects.filter(name__in=interests)
+            user.interests.set(user_interests)
+
+        return Response({"message": "Signup successful", "user_id": user.id}, status=status.HTTP_201_CREATED)
 
         # Generate JWT tokens for the new user
         refresh = RefreshToken.for_user(user)
@@ -62,6 +65,50 @@ class SignUpView(APIView):
             'user_id': user.id,
             'username': user.username
         }, status=status.HTTP_201_CREATED)
+
+class InterestView(APIView):
+    permission_classes = [IsAuthenticated]  # Or AllowAny if you want everyone to access the interests
+
+    def get(self, request):
+        # Retrieve all interests (both predefined and custom)
+        interests = Interest.objects.all()
+        serializer = InterestSerializer(interests, many=True)
+        return Response({"interests": serializer.data}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        # Extracting custom interests from the request
+        other_interests = request.data.get('other_interests', [])  # List of custom interests
+        
+        # Handle custom interests (add them if they don't exist)
+        for interest_name in other_interests:
+            interest_name = interest_name.strip().lower()  # Normalize interest name
+            
+            # Check if the interest already exists
+            existing_interest = Interest.objects.filter(name__iexact=interest_name).first()
+
+            if not existing_interest:
+                # If the interest doesn't exist, create a new one
+                Interest.objects.create(name=interest_name, is_custom=True)
+
+        return Response({"detail": "Interests updated successfully"}, status=status.HTTP_200_OK)
+
+class UpdateUserInterestsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Get the current user
+        user = request.user
+        
+        # Extract the interest IDs (both predefined and custom interests)
+        selected_interests = request.data.get('interests', [])
+
+        # Convert interest names/IDs to actual Interest objects
+        interests = Interest.objects.filter(name__in=selected_interests)
+
+        # Update the user's interests
+        user.profile.interests.set(interests)
+
+        return Response({"detail": "Interests updated successfully"}, status=status.HTTP_200_OK)
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -118,24 +165,19 @@ class LoginView(APIView):
         username = request.data.get("username")
         password = request.data.get("password")
 
-        print(f"Username: {username}, Password: {password}")  # Debugging
-
         if not username or not password:
             return Response({"error": "Username and password are required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Authenticate the user
         user = authenticate(username=username, password=password)
-        print(f"Authenticated User: {user}")  # Debugging
 
         if user is not None and user.is_active:
             login(request, user)
-            print(f"User logged in: {user}")  # Debugging
             # Directly access the role field from the authenticated user (StudentProfile)
             return Response({"message": "Login successful", "role": user.role})
         else:
-            print("Authentication failed")  # Debugging
             return Response({"error": "Invalid credentials or user is not active"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
 @api_view(['GET'])
 def study_groups(request):
     """
@@ -171,7 +213,7 @@ class TutorSignupView(APIView):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
 class TutorSessionCreateView(APIView):
     def post(self, request, *args, **kwargs):
         tutor_profile = request.user.tutor_profile  # Assuming user is a StudentProfile with TutorProfile
@@ -179,6 +221,7 @@ class TutorSessionCreateView(APIView):
         # Check if the tutor is approved
         if not tutor_profile.is_approved:
             raise PermissionDenied("Your tutor profile is awaiting admin approval.")
+
 # View for listing available tutors
 class AvailableTutorsView(generics.ListAPIView):
     queryset = TutorProfile.objects.all()
@@ -199,4 +242,3 @@ class StudentSessionsView(generics.ListAPIView):
 
     def get_queryset(self):
         return self.queryset.filter(student=self.request.user)
-
