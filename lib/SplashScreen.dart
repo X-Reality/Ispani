@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ispani/WelcomeScreen.dart';
 import 'dart:async';
-import 'HomeScreen.dart'; // Import the next screen
+// Import the next screen
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

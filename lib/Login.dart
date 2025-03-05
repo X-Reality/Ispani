@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:ispani/Forgotpassword.dart';
 import 'package:ispani/SignUp.dart';
+import 'package:ispani/HomeScreen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(const MaterialApp(
@@ -17,18 +20,70 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool isChecked = false; // Initial state
-  final _formKey = GlobalKey<FormState>(); // Key for form validation
+  bool isChecked = false;
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _validateAndLogin() {
-    if (_formKey.currentState!.validate()) {
-      // Navigate if form is valid
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => LoginScreen()), // Replace with HomeScreen
+  Future<void> _validateAndLogin() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      // Show a loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(child: CircularProgressIndicator()),
       );
+
+      // Prepare the data for the API request
+      String email = _emailController.text;
+      String password = _passwordController.text;
+
+      // Send the login request to your backend
+      try {
+        final response = await http.post(
+          Uri.parse('http://127.0.0.1:8000/login/'), // Replace with your actual backend URL
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'email': email,
+            'password': password,
+          }),
+        );
+
+        // Close the loading indicator
+        Navigator.pop(context);
+
+        if (response.statusCode == 200) {
+          // Parse the response if successful
+          final responseBody = json.decode(response.body);
+
+          // Check if the response contains a success message
+          if (responseBody['message'] == 'Login successful') {
+            // Navigate to HomeScreen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => HomeScreen()),
+            );
+          } else {
+            // Show error message if login failed
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(responseBody['message'] ?? 'Login failed')),
+            );
+          }
+        } else {
+          // Show error message for non-200 status codes
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('An error occurred during login')),
+          );
+        }
+      } catch (e) {
+        // Close the loading indicator on error
+        Navigator.pop(context);
+
+        // Show error message if request fails
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to connect to the server')),
+        );
+      }
     }
   }
 
@@ -38,7 +93,6 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Background Image
             Container(
               width: double.infinity,
               height: 300,
@@ -60,8 +114,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-
-            // Move Form Up to Overlap Background
             Transform.translate(
               offset: Offset(0, -50),
               child: Container(
@@ -82,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 child: Form(
-                  key: _formKey, // Attach form key
+                  key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -99,8 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: 20),
-
-                      // Email TextField
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
@@ -122,8 +172,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       SizedBox(height: 20),
-
-                      // Password TextField
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
@@ -146,7 +194,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       SizedBox(height: 10),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -168,22 +215,19 @@ class _LoginScreenState extends State<LoginScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => Forgotpassword()), // Replace with HomeScreen
+                                MaterialPageRoute(builder: (context) => Forgotpassword()),
                               );
                             },
                             child: Text(
                               'Forgot Password?',
                               style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
                             ),
-
                           ),
                         ],
                       ),
                       SizedBox(height: 30),
-
-                      // Login Button
                       ElevatedButton(
-                        onPressed: _validateAndLogin, // Validate form on click
+                        onPressed: _validateAndLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color.fromARGB(255, 147, 182, 138),
                           shape: RoundedRectangleBorder(
@@ -202,108 +246,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       SizedBox(height: 20),
                       Center(
-                        child:  Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Dont have an account, Create one '),
+                            Text('Don\'t have an account? '),
                             InkWell(
-                              onTap: (){
-                                Navigator.push(context,MaterialPageRoute(builder: (context) => SignupScreen()),);
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => SignupScreen()),
+                                );
                               },
-                              child: Text('Sign up',style: TextStyle(color: Color.fromARGB(255, 147, 182, 138),),),
-                            )
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 30,),
-                      Stack(
-                        children: [
-                          Divider(),
-                          Center(
-                            child: SizedBox(
-                              width: 60,
-                              child: Container(
-                                  color: Colors.white,
-                                child:Text('OR',textAlign: TextAlign.center,) ,
+                              child: Text(
+                                'Sign up',
+                                style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
                               ),
                             ),
-                          )
-                        ],
-                      ),
-                      SizedBox(height: 36),
-
-                      // Facebook Login Button
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          elevation: 0,
-                          backgroundColor: Colors.white,
-                          side: BorderSide(color: Colors.grey, width: 0.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          minimumSize: Size(double.infinity, 50),
-                          alignment: Alignment.centerLeft,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.facebook_outlined, color: Colors.black),
-                            SizedBox(width: 10),
-                            Text("Sign in with Facebook", style: TextStyle(fontSize: 18, color: Colors.black)),
                           ],
                         ),
                       ),
-                      SizedBox(height: 16),
-
-                      // Google Login Button
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          elevation: 0,
-                          side: BorderSide(color: Colors.grey, width: 0.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          minimumSize: Size(double.infinity, 50),
-                          alignment: Alignment.centerLeft,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.face, color: Colors.black),
-                            SizedBox(width: 10),
-                            Text("Sign in with Google ", style: TextStyle(fontSize: 18, color: Colors.black)),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 16),
-
-                      // Apple Login Button
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          elevation: 0,
-                          backgroundColor: Colors.white,
-                          side: BorderSide(color: Colors.grey, width: 0.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          minimumSize: Size(double.infinity, 50),
-                          alignment: Alignment.centerLeft,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.apple, color: Colors.black),
-                            SizedBox(width: 10),
-                            Text("Sign in with Apple", style: TextStyle(fontSize: 18, color: Colors.black)),
-
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 30,)
                     ],
                   ),
                 ),

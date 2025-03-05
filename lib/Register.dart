@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:ispani/HomeScreen.dart';
 
 void main() {
@@ -28,6 +30,53 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   final TextEditingController _courseController = TextEditingController();
   final TextEditingController _qualificationController = TextEditingController();
 
+  // Method to send form data to backend
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      final url = "http://127.0.0.1:8000/registration/";
+
+      try {
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode({
+            "name": _nameController.text,
+            "course": _courseController.text,
+            "qualification": _qualificationController.text,
+            "year": _selectedYear,
+            "jobs": _selectedJobs,
+            "hobbies": _selectedHobbies,
+            "communication": _selectedCommunication,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          // If backend responds with success
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Form submitted successfully!"),
+          ));
+          // Navigate to Home Screen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+        } else {
+          // Handle errors from backend
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Failed to submit the form. Please try again."),
+          ));
+        }
+      } catch (e) {
+        // Handle errors
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("An error occurred: $e"),
+        ));
+      }
+    }
+  }
+
   void _nextStep() {
     if (_formKey.currentState!.validate()) {
       if (_currentStep < 3) {
@@ -37,11 +86,8 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
         _pageController.nextPage(
             duration: Duration(milliseconds: 300), curve: Curves.easeInOut);
       } else {
-        // Navigate to Home Screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
-        );
+        // Submit the form data to the backend when on the last step
+        _submitForm();
       }
     }
   }
@@ -139,7 +185,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 4,
-                    (index) => Row(
+                (index) => Row(
                   children: [
                     CircleAvatar(
                       radius: 5,
@@ -267,8 +313,8 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Preferences", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildRadioList(["WhatsApp", "Email"], _selectedCommunication, (val) {
+          Text("Communication Preference", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          _buildRadioList(["Whatsapp", "Email", "Call"], _selectedCommunication, (val) {
             setState(() {
               _selectedCommunication = val!;
             });
