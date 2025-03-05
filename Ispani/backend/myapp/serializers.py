@@ -1,209 +1,150 @@
 from rest_framework import serializers
-from .models import StudentProfile, Group, Message, TutorProfile, TutoringSession, Booking,SubjectSpecialization
-from rest_framework.exceptions import ValidationError
+from .models import (
+    CustomUser, OTP, Registration, Group, Message, 
+    SubjectSpecialization, TutorProfile, TutoringSession, Booking
+)
+import random
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model
+from django.conf import settings
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
 
-class StudentProfileSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
+class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = StudentProfile
-        fields = ['id', 'username', 'email', 'password', 'year_of_study', 'field_of_study', 'interests', 'desired_jobs', 'role']
+        model = CustomUser
+        fields = ['id', 'email']
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
 
     def create(self, validated_data):
-        # Create a new user with a hashed password
-        user = StudentProfile.objects.create_user(
-            username=validated_data['username'],
+        user = CustomUser.objects.create_user(
+            email=validated_data['email'],
             password=validated_data['password'],
-            email=validated_data.get('email'),
-           
-            role=validated_data.get('role', 'student'),
-            year_of_study=validated_data.get('year_of_study'),
-            field_of_study=validated_data.get('field_of_study'),
-            interests=validated_data.get('interests'),
-            desired_jobs=validated_data.get('desired_jobs'),
         )
-        user.is_active = True
-        user.save()
-
-        # Automatically assign the user to groups
-        self.assign_to_study_groups(user)
-        self.assign_to_interest_groups(user)
-
         return user
+    
 
-    def assign_to_study_groups(self, user):
-        field_of_study = user.field_of_study
-        year_of_study = user.year_of_study
 
-        if field_of_study and year_of_study:
-            group, created = Group.objects.get_or_create(
-                name=f"{field_of_study} - Year {year_of_study}",
-                field_of_study=field_of_study,
-                year_of_study=year_of_study,
-            )
-            group.members.add(user)
-
-    def assign_to_interest_groups(self, user):
-        interests = user.interests
-        if interests:
-            for interest in interests.split(','):
-                interest = interest.strip()
-                if interest:
-                    group, created = Group.objects.get_or_create(
-                        name=f"{interest} Community",
-                        field_of_study=None,
-                        year_of_study=None,
-                    )
-                    group.members.add(user)
-
-class GroupSerializer(serializers.ModelSerializer):
-    members = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all(), many=True, required=False)
+class SignupSerializer(serializers.ModelSerializer):
+    otp = serializers.CharField(write_only=True)
 
     class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'password', 'otp']
+
+    def create(self, validated_data):
+        otp_code = validated_data.get('otp')
+        email = validated_data.get('email')
+
+        # Find OTP record for the provided email and code
+        otp_instance = OTP.objects.filter(email=email, code=otp_code).first()
+        if not otp_instance:
+            raise serializers.ValidationError("Invalid OTP.")
+        if otp_instance.is_expired():
+            raise serializers.ValidationError("OTP has expired.")
+
+        # If OTP is valid, create the user
+        user = CustomUser.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            is_active=True
+        )
+        return user
+
+
+
+def generate_otp(email):
+    otp_code = str(random.randint(100000, 999999))  # Generate a 6-digit OTP
+    otp = OTP.objects.create(email=email, code=otp_code)  # Save OTP to database
+    send_mail(
+        'Your OTP Code',
+        f'Your OTP code is: {otp_code}',
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+    )
+    return otp
+
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+
+        if email and password:
+            user = authenticate(username=email, password=password)
+            if user:
+                if not user.is_active:
+                    raise serializers.ValidationError('User account is disabled.')
+                data['user'] = user
+            else:
+                raise serializers.ValidationError('Invalid email or password.')
+        else:
+            raise serializers.ValidationError('Must include "email" and "password".')
+
+        return data
+
+
+
+
+class OTPSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OTP
+        fields = ['email', 'code', 'user_data', 'created_at']
+        read_only_fields = ['created_at']
+
+
+class RegistrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Registration
+        fields = ['name', 'course', 'qualification', 'year_of_study', 'piece_jobs', 'hobbies', 'communication_preference']
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
         model = Group
-        fields = ['id', 'name', 'year_of_study', 'field_of_study', 'members']
+        fields = ['id', 'name', 'members', 'group_type']
+
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = serializers.PrimaryKeyRelatedField(read_only=True)
-    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all())
-
     class Meta:
         model = Message
         fields = ['id', 'group', 'sender', 'content', 'timestamp']
-        read_only_fields = ['sender', 'timestamp']
 
-    def validate(self, attrs):
-        group = attrs['group']
-        sender = self.context['request'].user  # Directly use request.user (StudentProfile)
 
-        if not group.members.filter(id=sender.id).exists():
-            raise ValidationError("You are not a member of this group and cannot send messages here.")
-
-        return attrs
-
-    def create(self, validated_data):
-        validated_data['sender'] = self.context['request'].user
-        return super().create(validated_data)
-
-class JoinGroupSerializer(serializers.Serializer):
-    group_id = serializers.IntegerField()
-
-    def validate(self, attrs):
-        try:
-            group = Group.objects.get(id=attrs['group_id'])
-        except Group.DoesNotExist:
-            raise ValidationError("Group does not exist.")
-
-        student = self.context['request'].user
-
-        if group.field_of_study and group.year_of_study:
-            if group.year_of_study != student.year_of_study or group.field_of_study != student.field_of_study:
-                raise ValidationError("You cannot join this group because your year of study or field of study doesn't match.")
-
-        if group.members.filter(id=student.id).exists():
-            raise ValidationError("You are already a member of this group.")
-
-        return attrs
-
-    def save(self):
-        group = Group.objects.get(id=self.validated_data['group_id'])
-        student = self.context['request'].user
-        group.members.add(student)
-        return group
-    
-
-class TutorSignupSerializer(serializers.ModelSerializer):
-    subject_specializations = serializers.ListField(
-        child=serializers.CharField(max_length=100), required=True
-    )
-    available_times = serializers.CharField(required=True)
-    
+class SubjectSpecializationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TutorProfile
-        fields = ['subject_specializations', 'available_times']
+        model = SubjectSpecialization
+        fields = ['id', 'name']
 
-    def validate(self, data):
-        # Ensure the user is not already a tutor
-        user = self.context['request'].user
-        if hasattr(user, 'tutor_profile'):
-            raise ValidationError("You are already a tutor.")
-        return data
 
-    def create(self, validated_data):
-        user = self.context['request'].user
-        # Create the tutor profile
-        tutor_profile = TutorProfile.objects.create(
-            tutor=user,
-            available_times=validated_data['available_times']
-        )
-        
-        # Create and add subjects
-        subject_names = validated_data['subject_specializations']
-        subjects = []
-        for subject_name in subject_names:
-            subject, created = SubjectSpecialization.objects.get_or_create(name=subject_name)
-            subjects.append(subject)
-        tutor_profile.subjects.set(subjects)
-
-        return tutor_profile
-    
 class TutorProfileSerializer(serializers.ModelSerializer):
-    tutor = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
-    subjects = serializers.PrimaryKeyRelatedField(queryset=SubjectSpecialization.objects.all(), many=True)
-    available_times = serializers.CharField()
-    is_approved = serializers.BooleanField(default=False, read_only=True)  # Not editable by user
+    subjects = SubjectSpecializationSerializer(many=True, read_only=True)
 
     class Meta:
         model = TutorProfile
         fields = ['id', 'tutor', 'subjects', 'available_times', 'is_approved']
 
-    def create(self, validated_data):
-        tutor_profile = TutorProfile.objects.create(
-            tutor=validated_data['tutor'],
-            available_times=validated_data['available_times'],
-            is_approved=False,  # New tutors are not approved by default
-        )
-        tutor_profile.subjects.set(validated_data['subjects'])
-        return tutor_profile
 
-
-# TutoringSession Serializer
 class TutoringSessionSerializer(serializers.ModelSerializer):
-    tutor = TutorProfileSerializer(read_only=True)
-    student = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
+    tutor = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
     
     class Meta:
         model = TutoringSession
         fields = ['id', 'tutor', 'student', 'subject', 'date', 'duration', 'status']
 
-    def create(self, validated_data):
-        tutor_profile = validated_data.get('tutor')
-        student = validated_data.get('student')
 
-        # Ensure the student isn't booking a session with themselves
-        if tutor_profile.tutor == student:
-            raise ValidationError("A student cannot book a session with themselves.")
-
-        return super().create(validated_data)
-
-# Booking Serializer
 class BookingSerializer(serializers.ModelSerializer):
-    student = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all())
-    tutor = serializers.PrimaryKeyRelatedField(queryset=TutorProfile.objects.all())
     session = serializers.PrimaryKeyRelatedField(queryset=TutoringSession.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+    tutor = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
 
     class Meta:
         model = Booking
         fields = ['id', 'student', 'tutor', 'session', 'status']
-
-    def create(self, validated_data):
-        # Ensure the session is available for booking (not already booked)
-        session = validated_data.get('session')
-        if session.status == 'completed':
-            raise ValidationError("This session has already been completed.")
-
-        # Ensure the tutor is available for the session
-        if validated_data.get('tutor').tutor != session.tutor.tutor:
-            raise ValidationError("This tutor is not available for the selected session.")
-
-        return super().create(validated_data)
