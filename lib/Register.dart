@@ -110,7 +110,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, title: Text("Survey Form")),
+      appBar: AppBar(backgroundColor: Colors.white, title: Text("Registration  Form")),
       body: Form(
         key: _formKey,
         child: Column(
