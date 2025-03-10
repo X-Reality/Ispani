@@ -216,7 +216,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           Text("Basic Information",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           SizedBox(height: 36),
-          _buildTextField("Name", "Enter your name", _nameController),
+          _buildTextField("Username", "Enter your Username", _nameController),
           SizedBox(height: 16),
           _buildTextField("Course", "Enter your Course", _courseController),
           SizedBox(height: 16),
@@ -235,14 +235,14 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           Text("Academic & Work Details",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Text("Year of Study"),
-          _buildRadioList(["1st year", "2nd year", "3rd year"], _selectedYear.toString(), (val) {
+          _buildRadioList(["1", "2", "3"], _selectedYear.toString(), (val) {
             setState(() {
               _selectedYear = int.parse(val!);
             });
           }),
           SizedBox(height: 16),
           Text("What piece jobs would you do?"),
-          _buildCheckboxList(["Tutoring", "Selling stuff", "Delivering on campus"], _selectedJobs),
+         _buildCheckboxList(["Tutoring", "Selling stuff", "Delivering on campus","Hairstyling","Phone Repair", "CAD and 3D Modeling"], _selectedJobs),
         ],
       ),
     );
@@ -255,7 +255,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Hobbies & Needs", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildCheckboxList(["Chess", "Soccer"], _selectedHobbies),
+          _buildCheckboxList(["Chess", "Soccer","Gym, Jogging","Singing,Church,Dancing,Content Creating","Other"], _selectedHobbies),
         ],
       ),
     );
@@ -268,7 +268,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Preferences", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildRadioList(["WhatsApp", "Email"], _selectedCommunication, (val) {
+          _buildRadioList(["WhatsApp", "Email","Class","SMS"], _selectedCommunication, (val) {
             setState(() {
               _selectedCommunication = val!;
             });
