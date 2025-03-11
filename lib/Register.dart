@@ -156,7 +156,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, title: Text("Survey Form")),
+       appBar: AppBar(backgroundColor: Colors.white, title: Text("Registration  Form")),
       body: Form(
         key: _formKey,
         child: Column(
@@ -281,7 +281,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           Text("Academic & Work Details",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Text("Year of Study"),
-          _buildRadioList(["1st year", "2nd year", "3rd year"], _selectedYear.toString(), (val) {
+          _buildRadioList(["1", "2", "3"], _selectedYear.toString(), (val) {
             setState(() {
               _selectedYear = int.parse(val!);
             });
