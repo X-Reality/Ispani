@@ -125,7 +125,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
       type: BottomNavigationBarType.fixed,
       currentIndex: currentIndex,
       onTap: onTap,
-      selectedItemColor: Colors.blue,
+      selectedItemColor: Color.fromARGB(255, 147, 182, 138),
       unselectedItemColor: Colors.grey,
       items: [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
@@ -134,7 +134,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
           icon: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: Color.fromARGB(255, 147, 182, 138),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.explore, color: Colors.white),
@@ -193,7 +193,7 @@ class HomeTabScreen extends StatelessWidget {
                 Text("Communities", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 TextButton(
                   onPressed: () {},
-                  child: Text("View all", style: TextStyle(color: Colors.blue)),
+                  child: Text("View all", style: TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
                 ),
               ],
             ),
@@ -221,7 +221,7 @@ class HomeTabScreen extends StatelessWidget {
       trailing: ElevatedButton(
         onPressed: () {},
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
+          backgroundColor: Color.fromARGB(255, 147, 182, 138),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text("Join", style: TextStyle(color: Colors.white)),
