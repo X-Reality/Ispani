@@ -158,11 +158,44 @@ Future<void> verifyOTP() async {
               ),
 
              
-             
+              SizedBox(height: 100),
+                  ElevatedButton(
+                    onPressed: _seconds == 0
+                        ? () {
+                      setState(() {
+                        _seconds = 60; // Reset the timer
+                      });
+                      startTimer();
+                    }
+                        : null, // Disable button while timer is running
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: Size(double.infinity, 50),
+                    ),
+                    child: Text(
+                      'Resend Code',
+                      style: TextStyle(
+                        color: _seconds == 0 ? Colors.black : Colors.grey, // Disable color if timer is running
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
 
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _isLoading ? null : verifyOTP, // Disable button while loading
+                 style: ElevatedButton.styleFrom(
+                      backgroundColor: Color.fromARGB(255, 147, 182, 138),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: Size(double.infinity, 50),
+                    ),
                 child: _isLoading ? const CircularProgressIndicator() : const Text('Verify Code'),
               ),
             ],
