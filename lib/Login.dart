@@ -2,87 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:ispani/Forgotpassword.dart';
 import 'package:ispani/SignUp.dart';
 import 'package:ispani/HomeScreen.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: LoginScreen(),
-  ));
-}
+import 'package:ispani/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _authService = AuthService();
   bool isChecked = false;
+  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   Future<void> _validateAndLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Show a loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(child: CircularProgressIndicator()),
-      );
+      setState(() {
+        _isLoading = true;
+      });
 
-      // Prepare the data for the API request
       String email = _emailController.text;
       String password = _passwordController.text;
 
-      // Send the login request to your backend
       try {
-        final response = await http.post(
-          Uri.parse('http://127.0.0.1:8000/login/'), // Replace with your actual backend URL
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'email': email,
-            'password': password,
-          }),
-        );
+        final result = await _authService.login(email, password);
 
-        // Close the loading indicator
-        Navigator.pop(context);
-
-        if (response.statusCode == 200) {
-          // Parse the response if successful
-          final responseBody = json.decode(response.body);
-
-          // Check if the response contains a success message
-          if (responseBody['message'] == 'Login successful') {
-            // Navigate to HomeScreen
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => HomeScreen()),
-            );
-          } else {
-            // Show error message if login failed
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseBody['message'] ?? 'Login failed')),
-            );
-          }
-        } else {
-          // Show error message for non-200 status codes
+        if (result['success']) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('An error occurred during login')),
+            const SnackBar(content: Text('Login successful!')),
+          );
+          
+          // Navigate to HomeScreen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+        } else {
+          // Show error message
+          String errorMessage = 'Login failed';
+          
+          if (result.containsKey('response') && 
+              result['response'] is Map<String, dynamic> &&
+              result['response'].containsKey('message')) {
+            errorMessage = result['response']['message'];
+          } else if (result.containsKey('error')) {
+            errorMessage = result['error'];
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
           );
         }
       } catch (e) {
-        // Close the loading indicator on error
-        Navigator.pop(context);
-
-        // Show error message if request fails
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to connect to the server')),
+          SnackBar(content: Text('An error occurred: $e')),
         );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -96,30 +78,19 @@ class _LoginScreenState extends State<LoginScreen> {
             Container(
               width: double.infinity,
               height: 300,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage("assets/3203866.jpg"),
                   fit: BoxFit.cover,
                 ),
               ),
-              child: Center(
-                child: Text(
-                  "",
-                  textAlign: TextAlign.left,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ),
             Transform.translate(
-              offset: Offset(0, -50),
+              offset: const Offset(0, -50),
               child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(20),
@@ -138,19 +109,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      const Text(
                         'Welcome Back',
                         style: TextStyle(
                           fontSize: 35,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 10),
-                      Text(
+                      const SizedBox(height: 10),
+                      const Text(
                         'Please enter your credentials to continue.',
                         textAlign: TextAlign.center,
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
@@ -171,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
@@ -193,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -208,56 +179,58 @@ class _LoginScreenState extends State<LoginScreen> {
                                   });
                                 },
                               ),
-                              Text("Remember Me"),
+                              const Text("Remember Me"),
                             ],
                           ),
                           InkWell(
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => Forgotpassword()),
+                                MaterialPageRoute(builder: (context) => const Forgotpassword()),
                               );
                             },
-                            child: Text(
+                            child: const Text(
                               'Forgot Password?',
                               style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 30),
+                      const SizedBox(height: 30),
                       ElevatedButton(
-                        onPressed: _validateAndLogin,
+                        onPressed: _isLoading ? null : _validateAndLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color.fromARGB(255, 147, 182, 138),
+                          backgroundColor: const Color.fromARGB(255, 147, 182, 138),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          minimumSize: Size(double.infinity, 50),
+                          minimumSize: const Size(double.infinity, 50),
                         ),
-                        child: Text(
-                          'Login',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                'Login',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Don\'t have an account? '),
+                            const Text('Don\'t have an account? '),
                             InkWell(
                               onTap: () {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => SignupScreen()),
+                                  MaterialPageRoute(builder: (context) => const SignupScreen()),
                                 );
                               },
-                              child: Text(
+                              child: const Text(
                                 'Sign up',
                                 style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
                               ),

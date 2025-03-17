@@ -91,9 +91,14 @@ SIMPLE_JWT = {
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Default: database-backed sessions
 SESSION_COOKIE_AGE = 60 * 60 * 24  # Cookie lifespan: 1 day (in seconds)
 SESSION_SAVE_EVERY_REQUEST = True  # Renew session expiration with every request
-SESSION_COOKIE_SECURE = True  # Use True in production if using HTTPS
+SESSION_COOKIE_SECURE = True  # Use only on HTTPS
+SESSION_COOKIE_HTTPONLY = True # Use True in production if using HTTPS
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Session persists after closing the browser
 
+
+CSRF_COOKIE_SECURE = False  # Set to True only if using HTTPS
+CSRF_USE_SESSIONS = True  # Store CSRF token in session instead of cookie
+CSRF_COOKIE_HTTPONLY = False  # JS needs access to the token
 
 ROOT_URLCONF = 'backend.urls'
 AUTH_USER_MODEL = 'myapp.CustomUser' 

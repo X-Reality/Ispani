@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:ispani/HomeScreen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:html' as html; // For web storage fallback
 
 void main() {
   runApp(MaterialApp(
@@ -25,13 +26,88 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   List<String> _selectedJobs = [];
   List<String> _selectedHobbies = [];
 
+  // Storage solutions
+  final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  bool _isWeb = false;
+
   // Controller for text fields
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _courseController = TextEditingController();
   final TextEditingController _qualificationController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    // Check if we're running on web
+    try {
+      _isWeb = identical(0, 0.0);
+    } catch (e) {
+      _isWeb = false;
+    }
+  }
+
+  // Method to safely store token
+  Future<void> storeTokens(String token, String userId) async {
+    if (_isWeb) {
+      // Use localStorage for web
+      html.window.localStorage['jwt_token'] = token;
+      html.window.localStorage['user_id'] = userId;
+    } else {
+      // Use secure storage for mobile
+      try {
+        await _secureStorage.write(key: 'jwt_token', value: token);
+        await _secureStorage.write(key: 'user_id', value: userId);
+      } catch (e) {
+        print("Secure storage error: $e");
+        // Fallback to localStorage if secure storage fails
+        html.window.localStorage['jwt_token'] = token;
+        html.window.localStorage['user_id'] = userId;
+      }
+    }
+  }
+
+  // Method to safely get token
+  Future<String> getToken() async {
+    try {
+      if (_isWeb) {
+        return html.window.localStorage['jwt_token'] ?? '';
+      } else {
+        return await _secureStorage.read(key: 'jwt_token') ?? '';
+      }
+    } catch (e) {
+      print("Error getting token: $e");
+      // Fallback to localStorage if secure storage access fails
+      return html.window.localStorage['jwt_token'] ?? '';
+    }
+  }
+
+  // Method to safely get user ID
+  Future<String> getUserId() async {
+    try {
+      if (_isWeb) {
+        return html.window.localStorage['user_id'] ?? '';
+      } else {
+        return await _secureStorage.read(key: 'user_id') ?? '';
+      }
+    } catch (e) {
+      print("Error getting user ID: $e");
+      // Fallback to localStorage if secure storage access fails
+      return html.window.localStorage['user_id'] ?? '';
+    }
+  }
+
+  // Method to handle the successful OTP verification and token storage
+  Future<void> handleSuccessfulAuth(Map<String, dynamic> responseData) async {
+    if (responseData.containsKey('access') && responseData.containsKey('user')) {
+      final token = responseData['access'];
+      final userId = responseData['user']['id'].toString();
+      
+      await storeTokens(token, userId);
+    }
+  }
+
   // Method to send form data to backend
-  Future<void> _submitForm() async {
+  Future<void> _submitRegistration() async {
     if (_formKey.currentState!.validate()) {
       final url = "http://127.0.0.1:8000/registration/";
 
@@ -42,36 +118,40 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
             "Content-Type": "application/json",
           },
           body: jsonEncode({
-            "name": _nameController.text,
+            "name": _nameController.text, 
             "course": _courseController.text,
             "qualification": _qualificationController.text,
-            "year": _selectedYear,
-            "jobs": _selectedJobs,
-            "hobbies": _selectedHobbies,
-            "communication": _selectedCommunication,
+            "year_of_study": _selectedYear, // Ensure this is an integer
+            "piece_jobs": _selectedJobs, // Ensure this is a list of strings
+            "hobbies": _selectedHobbies, // Ensure this is a list of strings
+            "communication_preference": _selectedCommunication, // Ensure this is a string
           }),
         );
 
-        if (response.statusCode == 200) {
-          // If backend responds with success
+        final responseData = jsonDecode(response.body);
+
+        if (response.statusCode == 201 || response.statusCode == 200) {
+          // Handle successful response
+          if (responseData.containsKey('access') && responseData.containsKey('user')) {
+            final token = responseData['access'];
+            final userId = responseData['user']['id'].toString();
+            await storeTokens(token, userId);
+          }
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("Form submitted successfully!"),
+            content: Text(responseData['message'] ?? "Registration successful!"),
+            backgroundColor: Colors.green,
           ));
-          // Navigate to Home Screen
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => HomeScreen()),
-          );
         } else {
-          // Handle errors from backend
+          // Handle error response
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("Failed to submit the form. Please try again."),
+            content: Text("Error: ${responseData['detail'] ?? 'Unknown error'}"),
           ));
         }
+
       } catch (e) {
-        // Handle errors
+        // Handle network errors
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("An error occurred: $e"),
+          content: Text("Network error: $e"),
         ));
       }
     }
@@ -87,7 +167,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
             duration: Duration(milliseconds: 300), curve: Curves.easeInOut);
       } else {
         // Submit the form data to the backend when on the last step
-        _submitForm();
+        _submitRegistration();
       }
     }
   }
@@ -156,7 +236,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-       appBar: AppBar(backgroundColor: Colors.white, title: Text("Registration  Form")),
+      appBar: AppBar(backgroundColor: Colors.white, title: Text("Registration Form")),
       body: Form(
         key: _formKey,
         child: Column(

@@ -1,99 +1,74 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:ispani/Login.dart';
 import 'package:ispani/Otp.dart';
-
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: SignupScreen(),
-  ));
-}
+import 'package:ispani/services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  const SignupScreen({Key? key}) : super(key: key);
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  final _authService = AuthService();
   final _formKey = GlobalKey<FormState>(); 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _isLoading = false; // For button loading state
+  bool _isLoading = false;
 
-Future<void> _validateAndSignup() async {
-  if (_formKey.currentState!.validate()) {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      var response = await _signup(
-        _emailController.text,
-        _passwordController.text,
-      );
-
+  Future<void> _validateAndSignup() async {
+    if (_formKey.currentState!.validate()) {
       setState(() {
-        _isLoading = false;
+        _isLoading = true;
       });
 
-      if (response['success'] == true) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OtpScreen(
-              email: _emailController.text,
-              password: _passwordController.text, // Add password
-            )
-          ),
+      try {
+        final result = await _authService.signup(
+          _emailController.text,
+          _passwordController.text,
         );
-      } else {
-        _showErrorDialog(response['message'] ?? 'Signup failed. Try again.');
+
+        if (result['success']) {
+          // Check if the message indicates OTP was sent
+          final responseData = result['response'];
+          if (responseData is Map<String, dynamic> && 
+              responseData['message']?.contains('OTP sent') == true) {
+            
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OtpScreen(
+                  email: _emailController.text,
+                  password: _passwordController.text,
+                ),
+              ),
+            );
+          } else {
+            _showErrorDialog('Unexpected response from server');
+          }
+        } else {
+          String errorMessage = 'Signup failed';
+          
+          if (result.containsKey('response') && 
+              result['response'] is Map<String, dynamic> &&
+              result['response'].containsKey('message')) {
+            errorMessage = result['response']['message'];
+          } else if (result.containsKey('error')) {
+            errorMessage = result['error'];
+          }
+          
+          _showErrorDialog(errorMessage);
+        }
+      } catch (e) {
+        _showErrorDialog('Error: $e');
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showErrorDialog('Error: $e');
     }
   }
-}
-
- Future<Map<String, dynamic>> _signup(String email, String password) async {
-  final url = Uri.parse('http://127.0.0.1:8000/signup/');
-
-  try {
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
-
-    print('Signup Response Status: ${response.statusCode}');
-    print('Signup Response Body: ${response.body}');
-
-    // Parse the response body
-    final responseBody = jsonDecode(response.body);
-    print('Parsed Response Body: $responseBody');
-
-    if (response.statusCode == 200) {
-      // Check if the message indicates OTP was sent
-      if (responseBody['message']?.contains('OTP sent') ?? false) {
-        return {'success': true, 'message': responseBody['message']};
-      } else {
-        return {'success': false, 'message': responseBody['message'] ?? 'Signup failed'};
-      }
-    } else {
-      return {'success': false, 'message': 'Signup failed: ${response.statusCode}'};
-    }
-  } catch (e) {
-    print('Signup Error: $e');
-    return {'success': false, 'message': 'Network error: $e'};
-  }
-}
 
   void _showErrorDialog(String message) {
     showDialog(
