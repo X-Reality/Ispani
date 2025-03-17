@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (
-    CustomUser, OTP, Registration, Group, Message, 
+    CustomUser , OTP, Registration, Group, Message, 
     SubjectSpecialization, TutorProfile, TutoringSession, Booking,
     Hobby, PieceJob, DirectMessage
 )
@@ -23,51 +23,21 @@ class PieceJobSerializer(serializers.ModelSerializer):
         model = PieceJob
         fields = ['id', 'name']
 
+
 class CustomUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomUser
-        fields = ['id', 'email']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
-
-    def create(self, validated_data):
-        user = CustomUser.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-        )
-        return user
-
-class SignupSerializer(serializers.ModelSerializer):
-    otp = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'password', 'otp']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
+        fields = ['id', 'email', 'password']
 
     def create(self, validated_data):
-        otp_code = validated_data.pop('otp')
-        email = validated_data.get('email')
-
-        # Find OTP record for the provided email and code
-        otp_instance = OTP.objects.filter(email=email, code=otp_code).first()
-        if not otp_instance:
-            raise serializers.ValidationError("Invalid OTP.")
-        if otp_instance.is_expired():
-            raise serializers.ValidationError("OTP has expired.")
-
-        # If OTP is valid, create the user
+        # Create a new user with a hashed password
         user = CustomUser.objects.create_user(
-            username=email,  # Use email as username
-            email=email,
+            email=validated_data.get('email'), 
             password=validated_data['password'],
-            is_active=True
         )
         return user
-
 
 
 def generate_otp(email):
@@ -92,34 +62,7 @@ def generate_otp(email):
     )
     return otp
 
-
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        email = data.get('email')
-        password = data.get('password')
-
-        if email and password:
-            # Try to find the user by email
-            try:
-                user_obj = CustomUser.objects.get(email=email)
-                # Authenticate with username field (which we set to email)
-                user = authenticate(username=user_obj.username, password=password)
-                
-                if user:
-                    if not user.is_active:
-                        raise serializers.ValidationError('User account is disabled.')
-                    data['user'] = user
-                else:
-                    raise serializers.ValidationError('Invalid email or password.')
-            except CustomUser.DoesNotExist:
-                raise serializers.ValidationError('Invalid email or password.')
-        else:
-            raise serializers.ValidationError('Must include "email" and "password".')
-
-        return data
+        
 
 
 class OTPSerializer(serializers.ModelSerializer):
@@ -130,37 +73,33 @@ class OTPSerializer(serializers.ModelSerializer):
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    hobbies = serializers.PrimaryKeyRelatedField(
-        queryset=Hobby.objects.all(),
-        many=True,
-        required=False
-    )
-    piece_jobs = serializers.PrimaryKeyRelatedField(
-        queryset=PieceJob.objects.all(),
-        many=True,
-        required=False
-    )
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=CustomUser.objects.all()
-    )
-    
+    hobbies = serializers.ListField(child=serializers.CharField(), write_only=True)
+    piece_jobs = serializers.ListField(child=serializers.CharField(), write_only=True)
+    year_of_study = serializers.IntegerField()  # Ensure year_of_study is an integer
+
     class Meta:
         model = Registration
         fields = ['id', 'user', 'course', 'qualification', 'year_of_study', 'piece_jobs', 'hobbies', 'communication_preference']
 
     def create(self, validated_data):
-        hobbies = validated_data.pop('hobbies', [])
-        piece_jobs = validated_data.pop('piece_jobs', [])
+        hobbies_data = validated_data.pop('hobbies', [])
+        piece_jobs_data = validated_data.pop('piece_jobs', [])
         user = validated_data.get('user')
-        
+
         with transaction.atomic():
             # Create the registration
             registration = Registration.objects.create(**validated_data)
-            
-            # Add hobbies and piece_jobs
-            registration.hobbies.set(hobbies)
-            registration.piece_jobs.set(piece_jobs)
-            
+
+            # Create or associate PieceJob instances
+            for job in piece_jobs_data:
+                piece_job, created = PieceJob.objects.get_or_create(name=job)
+                registration.piece_jobs.add(piece_job)
+
+            # Create or associate Hobby instances
+            for hobby in hobbies_data:
+                hobby_instance, created = Hobby.objects.get_or_create(name=hobby)
+                registration.hobbies.add(hobby_instance)
+
             # Update user qualification and year if not already set
             if not user.qualification and validated_data.get('qualification'):
                 user.qualification = validated_data['qualification']
@@ -178,11 +117,11 @@ class RegistrationSerializer(serializers.ModelSerializer):
                 add_user_to_year_group(user, validated_data['year_of_study'])
             
             # Add user to hobby groups
-            for hobby in hobbies:
+            for hobby in registration.hobbies.all():
                 add_user_to_hobby_group(user, hobby)
             
             # Add user to piece job groups
-            for job in piece_jobs:
+            for job in registration.piece_jobs.all():
                 add_user_to_piecejob_group(user, job)
                 
             return registration
@@ -268,7 +207,7 @@ class TutorProfileSerializer(serializers.ModelSerializer):
 
 class TutoringSessionSerializer(serializers.ModelSerializer):
     tutor = serializers.PrimaryKeyRelatedField(queryset=TutorProfile.objects.all())
-    student = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=CustomUser .objects.all())
     
     class Meta:
         model = TutoringSession
@@ -277,12 +216,13 @@ class TutoringSessionSerializer(serializers.ModelSerializer):
 
 class BookingSerializer(serializers.ModelSerializer):
     session = serializers.PrimaryKeyRelatedField(queryset=TutoringSession.objects.all())
-    student = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+    student = serializers.PrimaryKeyRelatedField(queryset=CustomUser .objects.all())
     tutor = serializers.PrimaryKeyRelatedField(queryset=TutorProfile.objects.all())
 
     class Meta:
         model = Booking
         fields = ['id', 'student', 'tutor', 'session', 'status']
+
 
 class DirectMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField()

@@ -1,202 +1,209 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ispani/Register.dart';
+import 'package:ispani/HomeScreen.dart';
 
 class OtpScreen extends StatefulWidget {
-  final String email; // Receive email from previous screen
-  final String password; // Add password parameter
-  const OtpScreen({super.key, required this.email, required this.password});
+  final String email;
+  final String password;
 
-  
+  const OtpScreen({
+    Key? key,
+    required this.email,
+    required this.password,
+  }) : super(key: key);
+
   @override
   State<OtpScreen> createState() => _OtpScreenState();
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  int _seconds = 60;
-  Timer? _timer;
-  final TextEditingController _otpController = TextEditingController();
+  final _storage = FlutterSecureStorage();
   bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    startTimer();
-    
-  }
-
-  void startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_seconds > 0) {
-        setState(() {
-          _seconds--;
-        });
-      } else {
-        _timer!.cancel();
-      }
-    });
-  }
-
-
-  // Function to verify OTP with Django backend
-Future<void> verifyOTP() async {
-  setState(() {
-    _isLoading = true;
-  });
-
-  const url = "http://127.0.0.1:8000/verify-otp/";
-  try {
-
-    print('Sending OTP Verification:');
-    print('Email: ${widget.email}');
-    print('OTP: ${_otpController.text}');
-
-
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": widget.email,
-        "otp": _otpController.text,
-        "password": widget.password, 
-      }),
-    );
-
-    print('OTP Verification Status: ${response.statusCode}');
-    print('OTP Verification Response Body: ${response.body}');
-    print('OTP Verification Response Body: ${response.body}');
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    final responseBody = jsonDecode(response.body);
-    print('Parsed OTP Verification Response: $responseBody');
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-  // Adjust this condition based on your backend's exact response
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(responseBody['message'] ?? "User created successfully")),
-  );
-
-
- Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MultiScreenForm()),
-      );
-} else {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(responseBody['message'] ?? "Invalid OTP, please try again")),
-  );
-}
-
-    } 
-   catch (e) {
-    print('OTP Verification Error: $e');
-    setState(() {
-      _isLoading = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error verifying OTP: $e")),
-    );
-  }
-}
+  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _otpController.dispose();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
     super.dispose();
   }
 
+  void _moveFocus(int index) {
+    if (index < 5 && _controllers[index].text.isNotEmpty) {
+      _focusNodes[index + 1].requestFocus();
+    }
+  }
+
+  String _getOtpCode() {
+    return _controllers.map((controller) => controller.text).join();
+  }
+
+  Future<void> _verifyOtp() async {
+  String otpCode = _getOtpCode();
+  
+  if (otpCode.length != 6) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Please enter the complete OTP')),
+    );
+    return;
+  }
+  
+  setState(() {
+    _isLoading = true;
+  });
+  
+  try {
+    final url = Uri.parse('http://127.0.0.1:8000/verify-otp/');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': widget.email,
+        'otp': otpCode,
+      }),
+    );
+    
+    print('OTP Verification Status: ${response.statusCode}');
+    print('OTP Verification Response Body: ${response.body}');
+    
+    final responseData = jsonDecode(response.body);
+    print('Parsed OTP Verification Response: $responseData');
+    
+    if (response.statusCode == 200) {
+      // OTP verified successfully, navigate to registration form
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MultiScreenForm()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(responseData['message'] ?? 'OTP verification failed')),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: $e')),
+    );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
+      appBar: AppBar(
+        title: Text('OTP Verification'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(30),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(
-                radius: 60,
-                backgroundColor: Color.fromARGB(255, 147, 182, 138),
-                child: Icon(Icons.email_outlined, size: 50, color: Colors.black),
-              ),
-              const SizedBox(height: 36),
-              const Text(
+              SizedBox(height: 20),
+              Text(
                 'Verification Code',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
-              ),
-              const SizedBox(height: 26),
-              const Text(
-                'An email OTP was sent to your email. Please check your email and enter the code below.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 36),
-
-              TextField(
-                controller: _otpController,
-                textAlign: TextAlign.center,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                decoration: InputDecoration(
-                  counterText: '',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  filled: true,
-                  fillColor: Colors.white,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-
-              const SizedBox(height: 30),
+              SizedBox(height: 10),
               Text(
-                _seconds > 0 ? 'Resend Code in $_seconds s' : 'Didn\'t receive the code?',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                'We have sent the verification code to ${widget.email}',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
               ),
-
-             
-              SizedBox(height: 100),
-                  ElevatedButton(
-                    onPressed: _seconds == 0
-                        ? () {
-                      setState(() {
-                        _seconds = 60; // Reset the timer
-                      });
-                      startTimer();
-                    }
-                        : null, // Disable button while timer is running
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              SizedBox(height: 40),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(
+                  6,
+                  (index) => SizedBox(
+                    width: 50,
+                    child: TextField(
+                      controller: _controllers[index],
+                      focusNode: _focusNodes[index],
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      maxLength: 1,
+                      decoration: InputDecoration(
+                        counterText: '',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Color.fromARGB(255, 147, 182, 138), width: 2),
+                        ),
                       ),
-                      minimumSize: Size(double.infinity, 50),
+                      onChanged: (value) {
+                        if (value.isNotEmpty) {
+                          _moveFocus(index);
+                        }
+                      },
                     ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _verifyOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color.fromARGB(255, 147, 182, 138),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          'Verify',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                ),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("Didn't receive the code?"),
+                  TextButton(
+                    onPressed: () {
+                      // Resend OTP logic here
+                    },
                     child: Text(
-                      'Resend Code',
+                      'Resend',
                       style: TextStyle(
-                        color: _seconds == 0 ? Colors.black : Colors.grey, // Disable color if timer is running
+                        color: Color.fromARGB(255, 147, 182, 138),
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
                       ),
                     ),
                   ),
-
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _isLoading ? null : verifyOTP, // Disable button while loading
-                 style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromARGB(255, 147, 182, 138),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      minimumSize: Size(double.infinity, 50),
-                    ),
-                child: _isLoading ? const CircularProgressIndicator() : const Text('Verify Code'),
+                ],
               ),
             ],
           ),
