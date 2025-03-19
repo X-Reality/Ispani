@@ -77,7 +77,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
       final response = await http.get(
         Uri.parse('$baseUrl/groups/'),
         headers: {
-          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
       );
@@ -96,7 +95,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
         final announcementsResponse = await http.get(
           Uri.parse('$baseUrl/groups/announcements/'),
           headers: {
-            'Authorization': 'Bearer $accessToken',
             'Content-Type': 'application/json',
           },
         );

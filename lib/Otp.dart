@@ -24,6 +24,7 @@ class _OtpScreenState extends State<OtpScreen> {
   bool _isLoading = false;
   final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+  String? _tempToken; // Store the temp token here
 
   @override
   void dispose() {
@@ -39,6 +40,8 @@ class _OtpScreenState extends State<OtpScreen> {
   void _moveFocus(int index) {
     if (index < 5 && _controllers[index].text.isNotEmpty) {
       _focusNodes[index + 1].requestFocus();
+    } else if (index > 0 && _controllers[index].text.isEmpty) {
+      _focusNodes[index - 1].requestFocus();
     }
   }
 
@@ -46,58 +49,104 @@ class _OtpScreenState extends State<OtpScreen> {
     return _controllers.map((controller) => controller.text).join();
   }
 
-  Future<void> _verifyOtp() async {
-  String otpCode = _getOtpCode();
-  
-  if (otpCode.length != 6) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Please enter the complete OTP')),
-    );
-    return;
-  }
-  
-  setState(() {
-    _isLoading = true;
-  });
-  
-  try {
-    final url = Uri.parse('http://127.0.0.1:8000/verify-otp/');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': widget.email,
-        'otp': otpCode,
-      }),
-    );
-    
-    print('OTP Verification Status: ${response.statusCode}');
-    print('OTP Verification Response Body: ${response.body}');
-    
-    final responseData = jsonDecode(response.body);
-    print('Parsed OTP Verification Response: $responseData');
-    
-    if (response.statusCode == 200) {
-      // OTP verified successfully, navigate to registration form
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => MultiScreenForm()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(responseData['message'] ?? 'OTP verification failed')),
-      );
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error: $e')),
-    );
-  } finally {
+  Future<void> _resendOtp() async {
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
+    
+    try {
+      final url = Uri.parse('http://127.0.0.1:8000/signup/');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': widget.email,
+          'password': widget.password,
+        }),
+      );
+      
+      final responseData = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('OTP resent successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(responseData['error'] ?? 'Failed to resend OTP')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
-}
+
+  Future<void> _verifyOtp() async {
+    String otpCode = _getOtpCode();
+    
+    if (otpCode.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter the complete OTP')),
+      );
+      return;
+    }
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final url = Uri.parse('http://127.0.0.1:8000/verify-otp/');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': widget.email,
+          'otp': otpCode,
+          "password": widget.password,
+        }),
+      );
+      
+      final responseData = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        // Extract the temp_token from the response
+        _tempToken = responseData['temp_token']; // Store the tempToken
+        // Navigate to registration form with the temp token
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MultiScreenForm(
+              email: widget.email,
+              password: widget.password,
+              tempToken: _tempToken, // Pass the tempToken
+            ),
+          ),
+        );
+      } else {
+        // Handle error response
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Error: ${responseData['error'] ?? 'Unknown error'}"),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -154,9 +203,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         ),
                       ),
                       onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          _moveFocus(index);
-                        }
+                        _moveFocus(index);
                       },
                     ),
                   ),
@@ -192,9 +239,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 children: [
                   Text("Didn't receive the code?"),
                   TextButton(
-                    onPressed: () {
-                      // Resend OTP logic here
-                    },
+                    onPressed: _isLoading ? null : _resendOtp,
                     child: Text(
                       'Resend',
                       style: TextStyle(
