@@ -3,14 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:html' as html; // For web storage fallback
-
-void main() {
-  runApp(MaterialApp(
-    home: MultiScreenForm(),
-  ));
-}
+import 'package:ispani/HomeScreen.dart';
+import 'package:ispani/Login.dart'; // Assuming you have a HomeScreen
 
 class MultiScreenForm extends StatefulWidget {
+  final String? email;
+  final String? password;
+  final String? tempToken;
+
+  const MultiScreenForm({
+    Key? key,
+    this.email,
+    this.password,
+    this.tempToken,
+  }) : super(key: key);
+
   @override
   _MultiScreenFormState createState() => _MultiScreenFormState();
 }
@@ -29,11 +36,13 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   // Storage solutions
   final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   bool _isWeb = false;
+  bool _isLoading = false;
 
   // Controller for text fields
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _courseController = TextEditingController();
   final TextEditingController _qualificationController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
 
   @override
   void initState() {
@@ -96,67 +105,77 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
     }
   }
 
-  // Method to handle the successful OTP verification and token storage
+  // Method to handle the successful auth and token storage
   Future<void> handleSuccessfulAuth(Map<String, dynamic> responseData) async {
-    if (responseData.containsKey('access') && responseData.containsKey('user')) {
-      final token = responseData['access'];
-      final userId = responseData['user']['id'].toString();
+    if (responseData.containsKey('token') && responseData.containsKey('user_id')) {
+      final token = responseData['token'];
+      final userId = responseData['user_id'].toString();
       
       await storeTokens(token, userId);
     }
   }
 
   // Method to send form data to backend
-  Future<void> _submitRegistration() async {
-    if (_formKey.currentState!.validate()) {
-      final url = "http://127.0.0.1:8000/registration/";
+ // Method to send form data to backend
+Future<void> _submitRegistration() async {
+  if (_formKey.currentState!.validate()) {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final url = "http://127.0.0.1:8000/register/";
 
-      try {
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: jsonEncode({
-            "name": _nameController.text, 
-            "course": _courseController.text,
-            "qualification": _qualificationController.text,
-            "year_of_study": _selectedYear, // Ensure this is an integer
-            "piece_jobs": _selectedJobs, // Ensure this is a list of strings
-            "hobbies": _selectedHobbies, // Ensure this is a list of strings
-            "communication_preference": _selectedCommunication, // Ensure this is a string
-          }),
-        );
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "temp_token": widget.tempToken,
+          "username": _usernameController.text,
+          "year_of_study": _selectedYear,
+          "course": _courseController.text,
+          "hobbies": _selectedHobbies.join(', '),
+          "piece_jobs": _selectedJobs.join(', '),
+          "communication_preference": _selectedCommunication, 
+        }),
+      );
 
-        final responseData = jsonDecode(response.body);
-
-        if (response.statusCode == 201 || response.statusCode == 200) {
-          // Handle successful response
-          if (responseData.containsKey('access') && responseData.containsKey('user')) {
-            final token = responseData['access'];
-            final userId = responseData['user']['id'].toString();
-            await storeTokens(token, userId);
-          }
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(responseData['message'] ?? "Registration successful!"),
-            backgroundColor: Colors.green,
-          ));
-        } else {
-          // Handle error response
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("Error: ${responseData['detail'] ?? 'Unknown error'}"),
-          ));
-        }
-
-      } catch (e) {
-        // Handle network errors
+      final responseData = jsonDecode(response.body);
+      
+      if (response.statusCode == 201) {
+        // Registration successful, navigate to login screen
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Network error: $e"),
+          content: Text("Registration successful! Please log in."),
+          backgroundColor: Colors.green,
+        ));
+        
+        // Navigate to the login screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()), // Replace with your actual LoginScreen widget
+        );
+      } else {
+        // Handle error response
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Error: ${responseData['error'] ?? 'Unknown error'}"),
+          backgroundColor: Colors.red,
         ));
       }
+    } catch (e) {
+      // Handle network errors
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Network error: $e"),
+        backgroundColor: Colors.red,
+      ));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
-
+}
   void _nextStep() {
     if (_formKey.currentState!.validate()) {
       if (_currentStep < 3) {
@@ -291,7 +310,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
               children: [
                 if (_currentStep > 0)
                   ElevatedButton(
-                    onPressed: _prevStep,
+                    onPressed: _isLoading ? null : _prevStep,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color.fromARGB(255, 147, 182, 138),
                       shape: RoundedRectangleBorder(
@@ -308,21 +327,23 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
                     ),
                   ),
                 ElevatedButton(
-                  onPressed: _nextStep,
+                  onPressed: _isLoading ? null : _nextStep,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color.fromARGB(255, 147, 182, 138),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(
-                    _currentStep == 3 ? "Submit" : "Next",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
+                  child: _isLoading 
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          _currentStep == 3 ? "Submit" : "Next",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -342,11 +363,10 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           Text("Basic Information",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           SizedBox(height: 36),
-          _buildTextField("Name", "Enter your name", _nameController),
+          _buildTextField("Username", "Choose a username", _usernameController),
           SizedBox(height: 16),
           _buildTextField("Course", "Enter your Course", _courseController),
-          SizedBox(height: 16),
-          _buildTextField("Qualification", "Enter your Qualification", _qualificationController),
+         
         ],
       ),
     );
