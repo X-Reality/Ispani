@@ -9,7 +9,7 @@ def assign_student_to_group(sender, instance, created, **kwargs):
         
         matching_groups = Group.objects.filter(
             year_of_study=instance.year_of_study,
-            field_of_study=instance.field_of_study
+            course=instance.course
         )
         
         # Add the student to each matching group
