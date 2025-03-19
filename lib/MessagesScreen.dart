@@ -1,38 +1,56 @@
+// messages_screen.dart
 import 'package:flutter/material.dart';
+import 'package:ispani/ChatScreen.dart';
+import 'package:ispani/message_models.dart';
+import 'package:ispani/services/message_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(MaterialApp(
-    home: MessagesScreen(),
-  ));
+
+class MessagesScreen extends StatefulWidget {
+  @override
+  _MessagesScreenState createState() => _MessagesScreenState();
 }
 
-class MessagesScreen extends StatelessWidget {
-  final List<Message> messages = [
-    Message(
-      senderName: "Alice",
-      message: "Hey! How's it going?",
-      time: "10:30 AM",
-      profileImage: "assets/profile1.jpg",
-    ),
-    Message(
-      senderName: "Bob",
-      message: "Let's catch up tomorrow.",
-      time: "9:15 AM",
-      profileImage: "assets/profile2.jpg",
-    ),
-    Message(
-      senderName: "Charlie",
-      message: "I sent you the files.",
-      time: "Yesterday",
-      profileImage: "assets/profile3.jpg",
-    ),
-    Message(
-      senderName: "Daisy",
-      message: "Can you call me back?",
-      time: "Monday",
-      profileImage: "assets/profile4.jpg",
-    ),
-  ];
+class _MessagesScreenState extends State<MessagesScreen> {
+  // Change this to use the base URL, not the full endpoint
+  final MessageService messageService = MessageService('http://127.0.0.1:8000/'); 
+  List<Message> messages = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMessages();
+  }
+
+  Future<void> _fetchMessages() async {
+    try {
+      final token = await _getToken(); // Get the token from Shared Preferences
+      if (token != null) {
+        final fetchedMessages = await messageService.fetchMessages(token);
+        setState(() {
+          messages = fetchedMessages;
+          isLoading = false;
+        });
+      } else {
+        // Handle the case where the token is null (e.g., show an error message)
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Handle error
+      print("Error fetching messages: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<String?> _getToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +60,14 @@ class MessagesScreen extends StatelessWidget {
         title: Text("Messages"),
         backgroundColor: Colors.white,
       ),
-      body: ListView.builder(
-        itemCount: messages.length,
-        itemBuilder: (context, index) {
-          return _buildMessageItem(context, messages[index]);
-        },
-      ),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                return _buildMessageItem(context, messages[index]);
+              },
+            ),
     );
   }
 
@@ -61,55 +81,25 @@ class MessagesScreen extends StatelessWidget {
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
       subtitle: Text(
-        message.message,
+        message.content,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: Text(
-        message.time,
+        message.timestamp,
         style: TextStyle(color: Colors.grey),
       ),
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatScreen(senderName: message.senderName),
+            builder: (context) => ChatScreen(
+              senderName: message.senderName, 
+              recipientId: message.senderId, // Make sure to pass the senderId here
+            ),
           ),
         );
       },
-    );
-  }
-}
-
-class Message {
-  final String senderName;
-  final String message;
-  final String time;
-  final String profileImage;
-
-  Message({
-    required this.senderName,
-    required this.message,
-    required this.time,
-    required this.profileImage,
-  });
-}
-
-class ChatScreen extends StatelessWidget {
-  final String senderName;
-
-  ChatScreen({required this.senderName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(senderName),
-        backgroundColor: Colors.blue,
-      ),
-      body: Center(
-        child: Text("Chat with $senderName"),
-      ),
     );
   }
 }

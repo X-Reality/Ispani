@@ -46,6 +46,7 @@ class Message(models.Model):
     sender = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    recipient = models.ForeignKey(StudentProfile, related_name='received_messages', null=True, blank=True, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.sender.username} - {self.timestamp}"  # or self.sender.get_full_name()

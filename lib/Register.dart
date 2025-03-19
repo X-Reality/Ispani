@@ -56,21 +56,27 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   }
 
   // Method to safely store token
-  Future<void> storeTokens(String token, String userId) async {
+  Future<void> storeTokens(String accessToken, String refreshToken, String username, String email) async {
     if (_isWeb) {
       // Use localStorage for web
-      html.window.localStorage['jwt_token'] = token;
-      html.window.localStorage['user_id'] = userId;
+      html.window.localStorage['access_token'] = accessToken;
+      html.window.localStorage['refresh_token'] = refreshToken;
+      html.window.localStorage['username'] = username;
+      html.window.localStorage['email'] = email;
     } else {
       // Use secure storage for mobile
       try {
-        await _secureStorage.write(key: 'jwt_token', value: token);
-        await _secureStorage.write(key: 'user_id', value: userId);
+        await _secureStorage.write(key: 'access_token', value: accessToken);
+        await _secureStorage.write(key: 'refresh_token', value: refreshToken);
+        await _secureStorage.write(key: 'username', value: username);
+        await _secureStorage.write(key: 'email', value: email);
       } catch (e) {
         print("Secure storage error: $e");
         // Fallback to localStorage if secure storage fails
-        html.window.localStorage['jwt_token'] = token;
-        html.window.localStorage['user_id'] = userId;
+        html.window.localStorage['access_token'] = accessToken;
+        html.window.localStorage['refresh_token'] = refreshToken;
+        html.window.localStorage['username'] = username;
+        html.window.localStorage['email'] = email;
       }
     }
   }
@@ -79,103 +85,116 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   Future<String> getToken() async {
     try {
       if (_isWeb) {
-        return html.window.localStorage['jwt_token'] ?? '';
+        return html.window.localStorage['access_token'] ?? '';
       } else {
-        return await _secureStorage.read(key: 'jwt_token') ?? '';
+        return await _secureStorage.read(key: 'access_token') ?? '';
       }
     } catch (e) {
       print("Error getting token: $e");
       // Fallback to localStorage if secure storage access fails
-      return html.window.localStorage['jwt_token'] ?? '';
+      return html.window.localStorage['access_token'] ?? '';
     }
   }
 
-  // Method to safely get user ID
-  Future<String> getUserId() async {
+  // Method to safely get username
+  Future<String> getUsername() async {
     try {
       if (_isWeb) {
-        return html.window.localStorage['user_id'] ?? '';
+        return html.window.localStorage['username'] ?? '';
       } else {
-        return await _secureStorage.read(key: 'user_id') ?? '';
+        return await _secureStorage.read(key: 'username') ?? '';
       }
     } catch (e) {
-      print("Error getting user ID: $e");
+      print("Error getting username: $e");
       // Fallback to localStorage if secure storage access fails
-      return html.window.localStorage['user_id'] ?? '';
-    }
-  }
-
-  // Method to handle the successful auth and token storage
-  Future<void> handleSuccessfulAuth(Map<String, dynamic> responseData) async {
-    if (responseData.containsKey('token') && responseData.containsKey('user_id')) {
-      final token = responseData['token'];
-      final userId = responseData['user_id'].toString();
-      
-      await storeTokens(token, userId);
+      return html.window.localStorage['username'] ?? '';
     }
   }
 
   // Method to send form data to backend
- // Method to send form data to backend
-Future<void> _submitRegistration() async {
-  if (_formKey.currentState!.validate()) {
-    setState(() {
-      _isLoading = true;
-    });
-    
-    final url = "http://127.0.0.1:8000/register/";
-
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: jsonEncode({
-          "temp_token": widget.tempToken,
-          "username": _usernameController.text,
-          "year_of_study": _selectedYear,
-          "course": _courseController.text,
-          "hobbies": _selectedHobbies.join(', '),
-          "piece_jobs": _selectedJobs.join(', '),
-          "communication_preference": _selectedCommunication, 
-        }),
-      );
-
-      final responseData = jsonDecode(response.body);
+  Future<void> _submitRegistration() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
       
-      if (response.statusCode == 201) {
-        // Registration successful, navigate to login screen
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Registration successful! Please log in."),
-          backgroundColor: Colors.green,
-        ));
-        
-        // Navigate to the login screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => LoginScreen()), // Replace with your actual LoginScreen widget
+      final url = "http://127.0.0.1:8000/register/";
+
+      try {
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: jsonEncode({
+            "temp_token": widget.tempToken,
+            "username": _usernameController.text,
+            "year_of_study": _selectedYear,
+            "course": _courseController.text,
+            "hobbies": _selectedHobbies.join(', '),
+            "piece_jobs": _selectedJobs.join(', '),
+            "communication_preference": _selectedCommunication, 
+          }),
         );
-      } else {
-        // Handle error response
+
+        final responseData = jsonDecode(response.body);
+        
+        if (response.statusCode == 201) {
+          // Check if the updated backend returns tokens
+          if (responseData.containsKey('token') && responseData.containsKey('user')) {
+            // Store tokens and user info
+            await storeTokens(
+              responseData['token']['access'],
+              responseData['token']['refresh'],
+              responseData['user']['username'],
+              responseData['user']['email']
+            );
+            
+            // Registration successful and auto-login successful, navigate to home screen
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text("Registration successful! You are now logged in."),
+              backgroundColor: Colors.green,
+            ));
+            
+            // Navigate to the home screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => HomeScreen()),
+            );
+          } else {
+            // Registration successful but no tokens returned (fallback)
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text("Registration successful! Please log in."),
+              backgroundColor: Colors.green,
+            ));
+            
+            // Navigate to the login screen
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+          }
+        } else {
+          // Handle error response
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("Error: ${responseData['error'] ?? 'Unknown error'}"),
+            backgroundColor: Colors.red,
+          ));
+        }
+      } catch (e) {
+        // Handle network errors
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Error: ${responseData['error'] ?? 'Unknown error'}"),
+          content: Text("Network error: $e"),
           backgroundColor: Colors.red,
         ));
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
-    } catch (e) {
-      // Handle network errors
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Network error: $e"),
-        backgroundColor: Colors.red,
-      ));
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
-}
+
   void _nextStep() {
     if (_formKey.currentState!.validate()) {
       if (_currentStep < 3) {

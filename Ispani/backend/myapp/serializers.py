@@ -63,7 +63,16 @@ class MessageSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Message
-        fields = ['id', 'content', 'timestamp', 'sender', 'group']
+        fields = ['id', 'content', 'timestamp', 'sender', 'group','recipient']
+
+class PrivateMessageSerializer(serializers.ModelSerializer):
+    sender = StudentProfileSerializer(read_only=True)
+    recipient = StudentProfileSerializer(read_only=True)
+
+    class Meta:
+        model = Message
+        fields = ['id', 'content', 'timestamp', 'sender', 'recipient']
+
 
 
 class GroupSerializer(serializers.ModelSerializer):

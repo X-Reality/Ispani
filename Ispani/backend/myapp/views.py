@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import StudentProfile, Group, Message
-from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer
+from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer,PrivateMessageSerializer
 from django.core.cache import cache
 from django.utils.crypto import get_random_string
 from django.core.mail import send_mail
@@ -98,6 +98,22 @@ class GroupListCreate(generics.ListCreateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
 
+
+class SendPrivateMessageView(generics.CreateAPIView):
+    serializer_class = PrivateMessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+# views.py
+class PrivateMessageListView(generics.ListAPIView):
+    serializer_class = PrivateMessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Message.objects.filter(recipient=user).order_by('-timestamp')
 
 class MessageListCreate(generics.ListCreateAPIView):
     queryset = Message.objects.all()
