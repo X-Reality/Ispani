@@ -3,12 +3,13 @@ import random
 import uuid
 from django.contrib.auth import authenticate, login, logout
 from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, generics
-from rest_framework.decorators import api_view
-from django.contrib.auth.models import User
+from rest_framework.decorators import api_view,permission_classes
+from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import StudentProfile, Group, Message
 from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer
@@ -73,6 +74,7 @@ class VerifyOTPView(APIView):
             }, status=status.HTTP_200_OK)
         
         return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+    
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -165,7 +167,29 @@ class CompleteRegistrationView(APIView):
             user.save()
             cache.delete(temp_token)  # Remove temp_token after use
 
-            return Response({"message": "Registration completed successfully"}, status=status.HTTP_201_CREATED)
+            authenticated_user = authenticate(username=username, password=password)
+            if authenticated_user is not None:
+                login(request, authenticated_user)
+                
+                # Generate token for JWT authentication
+                refresh = RefreshToken.for_user(authenticated_user)
+                
+                return Response({
+                    "message": "Registration completed successfully",
+                    "user": {
+                        "username": authenticated_user.username,
+                        "email": authenticated_user.email,
+                    },
+                    "token": {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    }
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # This should rarely happen since we just created the user
+                logger.error(f"Failed to authenticate newly created user: {username}")
+                return Response({"message": "Registration completed successfully, but auto-login failed. Please log in manually."}, 
+                               status=status.HTTP_201_CREATED)
         
         return Response({"error": "Email is already registered."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -236,3 +260,88 @@ def hobby_groups(request):
     hobby_groups = Group.objects.filter(course__isnull=True, year_of_study__isnull=True)
     serializer = GroupSerializer(hobby_groups, many=True)
     return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def group_messages(request, group_id):
+    """
+    Get all messages for a specific group.
+    """
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    if not group.members.filter(id=request.user.id).exists():
+        return Response(
+            {"error": "You are not a member of this group"}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get the messages for the group, ordered by timestamp
+    messages = Message.objects.filter(group=group).order_by('timestamp')
+    serializer = MessageSerializer(messages, many=True, context={'request': request})
+    
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def group_detail(request, group_id):
+    """
+    Get detailed information about a specific group.
+    """
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    is_member = group.members.filter(id=request.user.id).exists()
+    
+    serializer = GroupSerializer(group, context={'request': request})
+    
+    return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def leave_group(request):
+    """
+    Leave a group.
+    """
+    group_id = request.data.get('group_id')
+    if not group_id:
+        return Response({"error": "group_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    if not group.members.filter(id=request.user.id).exists():
+        return Response(
+            {"error": "You are not a member of this group"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Remove the user from the group
+    group.members.remove(request.user)
+    
+    return Response({"message": "You have left the group"}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_messages_read(request):
+    """
+    Mark all messages in a group as read.
+    This is a placeholder - you'll need to implement your own read/unread tracking.
+    """
+    group_id = request.data.get('group_id')
+    if not group_id:
+        return Response({"error": "group_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    if not group.members.filter(id=request.user.id).exists():
+        return Response(
+            {"error": "You are not a member of this group"}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Implement read/unread tracking here
+    # This is a placeholder - you'll need to create a model to track read/unread status
+    
+    return Response({"message": "Messages marked as read"}, status=status.HTTP_200_OK)

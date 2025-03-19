@@ -57,57 +57,72 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                     )
                     group.members.add(user)
 
-class GroupSerializer(serializers.ModelSerializer):
-    members = serializers.PrimaryKeyRelatedField(queryset=StudentProfile.objects.all(), many=True, required=False)
-
-    class Meta:
-        model = Group
-        fields = ['id', 'name', 'year_of_study', 'course', 'members']
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = serializers.PrimaryKeyRelatedField(read_only=True)
-    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all())
-
+    sender = StudentProfileSerializer(read_only=True)
+    
     class Meta:
         model = Message
-        fields = ['id', 'group', 'sender', 'content', 'timestamp']
-        read_only_fields = ['sender', 'timestamp']
+        fields = ['id', 'content', 'timestamp', 'sender', 'group']
 
-    def validate(self, attrs):
-        group = attrs['group']
-        sender = self.context['request'].user  # Directly use request.user (StudentProfile)
 
-        if not group.members.filter(id=sender.id).exists():
-            raise ValidationError("You are not a member of this group and cannot send messages here.")
-
-        return attrs
-
-    def create(self, validated_data):
-        validated_data['sender'] = self.context['request'].user
-        return super().create(validated_data)
+class GroupSerializer(serializers.ModelSerializer):
+    members = StudentProfileSerializer(many=True, read_only=True)
+    messages = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    last_message_time = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
+    is_member = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'members', 'course', 'year_of_study', 
+                  'messages', 'last_message', 'last_message_time', 'unread_count', 'is_member']
+    
+    def get_messages(self, obj):
+        # Only fetch the last 20 messages for performance
+        recent_messages = Message.objects.filter(group=obj).order_by('-timestamp')[:20]
+        return MessageSerializer(recent_messages, many=True).data
+    
+    def get_last_message(self, obj):
+        last_message = Message.objects.filter(group=obj).order_by('-timestamp').first()
+        if last_message:
+            return f"{last_message.sender.username}: {last_message.content[:30]}"
+        return None
+    
+    def get_last_message_time(self, obj):
+        last_message = Message.objects.filter(group=obj).order_by('-timestamp').first()
+        if last_message:
+            return last_message.timestamp.isoformat()
+        return None
+    
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            # Replace this with your actual unread message counting logic
+            return Message.objects.filter(group=obj).count()  # Placeholder
+        return 0
+    
+    def get_is_member(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            return obj.members.filter(id=request.user.id).exists()
+        return False
 
 class JoinGroupSerializer(serializers.Serializer):
     group_id = serializers.IntegerField()
-
-    def validate(self, attrs):
+    
+    def validate_group_id(self, value):
         try:
-            group = Group.objects.get(id=attrs['group_id'])
+            self.group = Group.objects.get(id=value)
         except Group.DoesNotExist:
-            raise ValidationError("Group does not exist.")
-
-        student = self.context['request'].user
-
-        if group.course and group.year_of_study:
-            if group.year_of_study != student.year_of_study or group.course != student.course:
-                raise ValidationError("You cannot join this group because your year of study or field of study doesn't match.")
-
-        if group.members.filter(id=student.id).exists():
-            raise ValidationError("You are already a member of this group.")
-
-        return attrs
-
+            raise serializers.ValidationError("Group does not exist")
+        return value
+    
     def save(self):
-        group = Group.objects.get(id=self.validated_data['group_id'])
-        student = self.context['request'].user
-        group.members.add(student)
-        return group
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            student_profile = request.user
+            self.group.members.add(student_profile)
+            return self.group
+        raise serializers.ValidationError("User must be authenticated to join a group")
