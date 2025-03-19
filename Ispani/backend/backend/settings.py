@@ -101,7 +101,7 @@ CSRF_USE_SESSIONS = True  # Store CSRF token in session instead of cookie
 CSRF_COOKIE_HTTPONLY = False  # JS needs access to the token
 
 ROOT_URLCONF = 'backend.urls'
-AUTH_USER_MODEL = 'myapp.CustomUser' 
+AUTH_USER_MODEL = 'myapp.StudentProfile' 
 
 CORS_ALLOW_ALL_ORIGINS = True # development only
 
