@@ -1,5 +1,6 @@
 from django.urls import path, re_path
-from myapp.views import * 
+from . import views
+from .views import * 
 from . import consumers
 
 
@@ -12,9 +13,14 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('groups/', GroupListCreate.as_view(), name='group-list-create'),
     path('study-groups/', study_groups, name='study-groups'),
-    path('interest-groups/', hobby_groups, name='interest-groups'),
+    path('hobby-groups/', hobby_groups, name='hobby-groups'),
     path('messages/', MessageListCreate.as_view(), name='message-list-create'),
     path('join-group/', join_group, name='join-group'),
+
+    path('groups/<int:group_id>/', views.group_detail, name='group-detail'),
+    path('groups/<int:group_id>/messages/', views.group_messages, name='group-messages'),
+    path('leave-group/', views.leave_group, name='leave-group'),
+    path('mark-messages-read/', views.mark_messages_read, name='mark-messages-read'),
 ]
 
 websocket_urlpatterns = [
