@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -95,20 +96,115 @@ class Message {
   });
 }
 
-class ChatScreen extends StatelessWidget {
+class ChatScreen extends StatefulWidget {
   final String senderName;
 
   ChatScreen({required this.senderName});
 
   @override
+  _ChatScreenState createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final List<Map<String, dynamic>> _messages = [];
+
+  // Function to send text messages
+  void _sendMessage({String? text, String? filePath}) {
+    if ((text?.trim().isNotEmpty ?? false) || (filePath != null)) {
+      setState(() {
+        _messages.add({
+          "text": text,
+          "filePath": filePath,
+        });
+        _messageController.clear();
+      });
+    }
+  }
+
+  // Function to pick a file
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    if (result != null && result.files.isNotEmpty) {
+      String filePath = result.files.first.name; // Display file name
+      _sendMessage(filePath: filePath);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(senderName),
+        title: Text(widget.senderName),
         backgroundColor: Colors.blue,
       ),
-      body: Center(
-        child: Text("Chat with $senderName"),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                var message = _messages[index];
+                return ListTile(
+                  title: Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: message["text"] != null
+                            ? Colors.blueAccent
+                            : Colors.greenAccent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: message["text"] != null
+                          ? Text(
+                        message["text"],
+                        style: TextStyle(color: Colors.white),
+                      )
+                          : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.attach_file, color: Colors.white),
+                          SizedBox(width: 5),
+                          Text(
+                            message["filePath"],
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.attach_file, color: Colors.blue),
+                  onPressed: _pickFile, // Opens file picker
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: "Type a message...",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send, color: Colors.blue),
+                  onPressed: () => _sendMessage(text: _messageController.text),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
