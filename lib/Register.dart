@@ -411,14 +411,9 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           }),
           SizedBox(height: 16),
           Text("What piece jobs would you do?"),
-          _buildCheckboxList([
-            "Tutoring",
-            "Selling stuff",
-            "Delivering on campus",
-            "Hairstyling",
-            "Phone Repair",
-            "CAD and 3D Modeling"
-          ], _selectedJobs),
+          _buildCheckboxList(
+              ["Tutoring", "Selling stuff", "Delivering on campus"],
+              _selectedJobs),
         ],
       ),
     );
@@ -432,13 +427,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
         children: [
           Text("Hobbies & Needs",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildCheckboxList([
-            "Chess",
-            "Soccer",
-            "Gym, Jogging",
-            "Singing,Church,Dancing,Content Creating",
-            "Other"
-          ], _selectedHobbies),
+          _buildCheckboxList(["Chess", "Soccer"], _selectedHobbies),
         ],
       ),
     );

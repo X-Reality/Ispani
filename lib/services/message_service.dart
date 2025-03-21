@@ -27,7 +27,8 @@ class MessageService {
   }
 
   // Fetch conversation with specific recipient
-  Future<List<Message>> fetchConversation(String recipientId, String token) async {
+  Future<List<Message>> fetchConversation(
+      String recipientId, String token) async {
     final response = await http.get(
       Uri.parse('${baseUrl}messages/private/inbox/$recipientId/'),
       headers: {
@@ -45,7 +46,8 @@ class MessageService {
   }
 
   // Send a message
-  Future<void> sendMessage(String content, String recipientId, String token) async {
+  Future<void> sendMessage(
+      String content, String recipientId, String token) async {
     final response = await http.post(
       Uri.parse('${baseUrl}messages/private/send/'),
       headers: {

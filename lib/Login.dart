@@ -28,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   // Storage solutions
   final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   bool _isWeb = false;
@@ -45,7 +45,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Method to safely store token
-  Future<void> storeTokens(String accessToken, String refreshToken, String username, String email) async {
+  Future<void> storeTokens(String accessToken, String refreshToken,
+      String username, String email) async {
     if (_isWeb) {
       // Use localStorage for web
       html.window.localStorage['access_token'] = accessToken;
@@ -100,21 +101,22 @@ class _LoginScreenState extends State<LoginScreen> {
         if (response.statusCode == 200) {
           // Parse the response if successful
           final responseBody = json.decode(response.body);
-          final Map<String, dynamic> responseData = json.decode(response.body); 
+          final Map<String, dynamic> responseData = json.decode(response.body);
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString("access_token", responseData["token"]["access"]); // Save token
+          await prefs.setString(
+              "access_token", responseData["token"]["access"]); // Save token
 
           // Check if the response contains a success message
           if (responseBody['message'] == 'Login successful') {
             // Store authentication tokens
-            if (responseBody.containsKey('token') && responseBody.containsKey('user')) {
+            if (responseBody.containsKey('token') &&
+                responseBody.containsKey('user')) {
               await storeTokens(
-                responseBody['token']['access'],
-                responseBody['token']['refresh'],
-                responseBody['user']['username'],
-                responseBody['user']['email']
-              );
+                  responseBody['token']['access'],
+                  responseBody['token']['refresh'],
+                  responseBody['user']['username'],
+                  responseBody['user']['email']);
             }
 
             // Navigate to HomeScreen
@@ -125,16 +127,19 @@ class _LoginScreenState extends State<LoginScreen> {
           } else {
             // Show error message if login failed
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseBody['message'] ?? 'Login failed')),
+              SnackBar(
+                  content: Text(responseBody['message'] ?? 'Login failed')),
             );
           }
         } else {
           // Parse error response
           final errorBody = json.decode(response.body);
-          
+
           // Show error message for non-200 status codes
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorBody['error'] ?? 'An error occurred during login')),
+            SnackBar(
+                content: Text(
+                    errorBody['error'] ?? 'An error occurred during login')),
           );
         }
       } catch (e) {
@@ -227,7 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return "Email is required";
-                          } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                          } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                              .hasMatch(value)) {
                             return "Enter a valid email";
                           }
                           return null;
@@ -277,12 +283,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => Forgotpassword()),
+                                MaterialPageRoute(
+                                    builder: (context) => Forgotpassword()),
                               );
                             },
                             child: Text(
                               'Forgot Password?',
-                              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -316,12 +325,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => SignupScreen()),
+                                  MaterialPageRoute(
+                                      builder: (context) => SignupScreen()),
                                 );
                               },
                               child: Text(
                                 'Sign up',
-                                style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
+                                style: TextStyle(
+                                    color: Color.fromARGB(255, 147, 182, 138)),
                               ),
                             ),
                           ],
