@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'SplashScreen.dart';
-import 'WelcomeScreen.dart';
-import 'WelcomeScreen2.dart';
-import 'HomeScreen.dart';
 
 
 void main() {

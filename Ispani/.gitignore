@@ -1,0 +1,25 @@
+Set-Content -Path .gitignore -Value "
+# Python Bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Django specific
+*.log
+*.sqlite3
+db.sqlite3
+/static/
+/media/
+.env  # If you're using environment variables
+
+# Virtual Environment
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Node modules (if using Node.js for front-end)
+node_modules/
+"

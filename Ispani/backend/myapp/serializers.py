@@ -135,35 +135,3 @@ class JoinGroupSerializer(serializers.Serializer):
             self.group.members.add(student_profile)
             return self.group
         raise serializers.ValidationError("User must be authenticated to join a group")
-
-class CommunitySerializer(serializers.ModelSerializer):
-    admin = StudentProfileSerializer(read_only=True)
-    members_count = serializers.SerializerMethodField()
-    groups_count = serializers.SerializerMethodField()
-    is_member = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Community
-        fields = ['id', 'name', 'description', 'admin', 'members_count', 
-                  'groups_count', 'created_at', 'is_member']
-    
-    def get_members_count(self, obj):
-        return obj.members.count()
-    
-    def get_groups_count(self, obj):
-        return obj.groups.count()
-    
-    def get_is_member(self, obj):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return obj.members.filter(id=request.user.id).exists()
-        return False
-
-class CommunityDetailSerializer(CommunitySerializer):
-    members = StudentProfileSerializer(many=True, read_only=True)
-    groups = GroupSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = Community
-        fields = ['id', 'name', 'description', 'admin', 'members', 
-                  'groups', 'created_at', 'is_member']

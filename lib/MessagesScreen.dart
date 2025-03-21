@@ -1,11 +1,9 @@
+// messages_screen.dart
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-
-void main() {
-  runApp(MaterialApp(
-    home: MessagesScreen(),
-  ));
-}
+import 'package:ispani/ChatScreen.dart';
+import 'package:ispani/message_models.dart';
+import 'package:ispani/services/message_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MessagesScreen extends StatelessWidget {
   final List<Message> messages = [
@@ -43,12 +41,14 @@ class MessagesScreen extends StatelessWidget {
         title: Text("Messages"),
         backgroundColor: Colors.white,
       ),
-      body: ListView.builder(
-        itemCount: messages.length,
-        itemBuilder: (context, index) {
-          return _buildMessageItem(context, messages[index]);
-        },
-      ),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                return _buildMessageItem(context, messages[index]);
+              },
+            ),
     );
   }
 
@@ -62,12 +62,12 @@ class MessagesScreen extends StatelessWidget {
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
       subtitle: Text(
-        message.message,
+        message.content,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: Text(
-        message.time,
+        message.timestamp,
         style: TextStyle(color: Colors.grey),
       ),
       onTap: () {
@@ -96,115 +96,20 @@ class Message {
   });
 }
 
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends StatelessWidget {
   final String senderName;
 
   ChatScreen({required this.senderName});
 
   @override
-  _ChatScreenState createState() => _ChatScreenState();
-}
-
-class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages = [];
-
-  // Function to send text messages
-  void _sendMessage({String? text, String? filePath}) {
-    if ((text?.trim().isNotEmpty ?? false) || (filePath != null)) {
-      setState(() {
-        _messages.add({
-          "text": text,
-          "filePath": filePath,
-        });
-        _messageController.clear();
-      });
-    }
-  }
-
-  // Function to pick a file
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.isNotEmpty) {
-      String filePath = result.files.first.name; // Display file name
-      _sendMessage(filePath: filePath);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.senderName),
+        title: Text(senderName),
         backgroundColor: Colors.blue,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                var message = _messages[index];
-                return ListTile(
-                  title: Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      padding: EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: message["text"] != null
-                            ? Colors.blueAccent
-                            : Colors.greenAccent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: message["text"] != null
-                          ? Text(
-                        message["text"],
-                        style: TextStyle(color: Colors.white),
-                      )
-                          : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.attach_file, color: Colors.white),
-                          SizedBox(width: 5),
-                          Text(
-                            message["filePath"],
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.attach_file, color: Colors.blue),
-                  onPressed: _pickFile, // Opens file picker
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: "Type a message...",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.send, color: Colors.blue),
-                  onPressed: () => _sendMessage(text: _messageController.text),
-                ),
-              ],
-            ),
-          ),
-        ],
+      body: Center(
+        child: Text("Chat with $senderName"),
       ),
     );
   }

@@ -50,14 +50,3 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.sender.username} - {self.timestamp}"  # or self.sender.get_full_name()
-
-class Community(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
-    admin = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='administered_communities')
-    members = models.ManyToManyField(StudentProfile, related_name='communities')
-    groups = models.ManyToManyField(Group, related_name='communities')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.names
