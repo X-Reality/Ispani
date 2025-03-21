@@ -8,14 +8,17 @@ class ChatScreen extends StatefulWidget {
   final String senderName;
   final String recipientId; // Add recipientId as a parameter
 
-  ChatScreen({required this.senderName, required this.recipientId}); // Update constructor
+  ChatScreen(
+      {required this.senderName,
+      required this.recipientId}); // Update constructor
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final MessageService messageService = MessageService('http://127.0.0.1:8000/'); // Base URL
+  final MessageService messageService =
+      MessageService('http://127.0.0.1:8000/'); // Base URL
   final TextEditingController _controller = TextEditingController();
   bool _isLoading = false; // To manage loading state
   List<Message> messages = []; // List to hold messages
@@ -46,7 +49,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
       try {
         // Send the message using the recipientId from the widget and the token
-        await messageService.sendMessage(_controller.text, widget.recipientId, token);
+        await messageService.sendMessage(
+            _controller.text, widget.recipientId, token);
         _controller.clear();
         // Optionally, show a success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -74,7 +78,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (token != null) {
       try {
         // Use fetchConversation instead of fetchMessages
-        List<Message> fetchedMessages = await messageService.fetchConversation(widget.recipientId, token);
+        List<Message> fetchedMessages =
+            await messageService.fetchConversation(widget.recipientId, token);
         setState(() {
           messages = fetchedMessages; // Update the messages list
         });
@@ -102,9 +107,12 @@ class _ChatScreenState extends State<ChatScreen> {
               itemBuilder: (context, index) {
                 final message = messages[index];
                 return ListTile(
-                  title: Text(message.senderName), // Adjust based on your Message model
-                  subtitle: Text(message.content), // Adjust based on your Message model
-                  trailing: Text(message.timestamp), // Adjust based on your Message model
+                  title: Text(
+                      message.senderName), // Adjust based on your Message model
+                  subtitle: Text(
+                      message.content), // Adjust based on your Message model
+                  trailing: Text(
+                      message.timestamp), // Adjust based on your Message model
                 );
               },
             ),
@@ -124,7 +132,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 IconButton(
                   icon: Icon(Icons.send),
-                  onPressed: _isLoading ? null : _sendMessage, // Disable button while loading
+                  onPressed: _isLoading
+                      ? null
+                      : _sendMessage, // Disable button while loading
                 ),
               ],
             ),

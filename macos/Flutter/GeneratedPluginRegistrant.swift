@@ -5,7 +5,6 @@
 import FlutterMacOS
 import Foundation
 
-import file_picker
 import flutter_secure_storage_macos
 import shared_preferences_foundation
 

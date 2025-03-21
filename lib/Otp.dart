@@ -22,7 +22,8 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final _storage = FlutterSecureStorage();
   bool _isLoading = false;
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers =
+      List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   String? _tempToken; // Store the temp token here
 
@@ -53,7 +54,7 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final url = Uri.parse('http://127.0.0.1:8000/signup/');
       final response = await http.post(
@@ -64,16 +65,17 @@ class _OtpScreenState extends State<OtpScreen> {
           'password': widget.password,
         }),
       );
-      
+
       final responseData = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('OTP resent successfully')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(responseData['error'] ?? 'Failed to resend OTP')),
+          SnackBar(
+              content: Text(responseData['error'] ?? 'Failed to resend OTP')),
         );
       }
     } catch (e) {
@@ -89,18 +91,18 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _verifyOtp() async {
     String otpCode = _getOtpCode();
-    
+
     if (otpCode.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please enter the complete OTP')),
       );
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final url = Uri.parse('http://127.0.0.1:8000/verify-otp/');
       final response = await http.post(
@@ -112,9 +114,9 @@ class _OtpScreenState extends State<OtpScreen> {
           "password": widget.password,
         }),
       );
-      
+
       final responseData = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200) {
         // Extract the temp_token from the response
         _tempToken = responseData['temp_token']; // Store the tempToken
@@ -199,7 +201,9 @@ class _OtpScreenState extends State<OtpScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Color.fromARGB(255, 147, 182, 138), width: 2),
+                          borderSide: BorderSide(
+                              color: Color.fromARGB(255, 147, 182, 138),
+                              width: 2),
                         ),
                       ),
                       onChanged: (value) {

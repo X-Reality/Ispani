@@ -13,7 +13,7 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _authService = AuthService();
-  final _formKey = GlobalKey<FormState>(); 
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -33,9 +33,8 @@ class _SignupScreenState extends State<SignupScreen> {
         if (result['success']) {
           // Check if the message indicates OTP was sent
           final responseData = result['response'];
-          if (responseData is Map<String, dynamic> && 
+          if (responseData is Map<String, dynamic> &&
               responseData['message']?.contains('OTP sent') == true) {
-            
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -50,15 +49,15 @@ class _SignupScreenState extends State<SignupScreen> {
           }
         } else {
           String errorMessage = 'Signup failed';
-          
-          if (result.containsKey('response') && 
+
+          if (result.containsKey('response') &&
               result['response'] is Map<String, dynamic> &&
               result['response'].containsKey('message')) {
             errorMessage = result['response']['message'];
           } else if (result.containsKey('error')) {
             errorMessage = result['error'];
           }
-          
+
           _showErrorDialog(errorMessage);
         }
       } catch (e) {
@@ -105,7 +104,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
             ),
-
             Transform.translate(
               offset: const Offset(0, -50),
               child: Container(
@@ -131,61 +129,71 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       const Text(
                         'Create an Account',
-                        style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 35, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 10),
-                      const Text('Please enter your credentials to continue.', textAlign: TextAlign.center),
+                      const Text('Please enter your credentials to continue.',
+                          textAlign: TextAlign.center),
                       const SizedBox(height: 20),
-
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
                           labelText: "Email",
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
                           filled: true,
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return "Email is required";
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return "Enter a valid email";
+                          if (value == null || value.isEmpty)
+                            return "Email is required";
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value))
+                            return "Enter a valid email";
                           return null;
                         },
                       ),
                       const SizedBox(height: 20),
-
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
                         decoration: InputDecoration(
                           labelText: "Password",
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
                           filled: true,
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) return "Password is required";
-                          if (value.length < 6) return "Password must be at least 6 characters";
+                          if (value == null || value.isEmpty)
+                            return "Password is required";
+                          if (value.length < 6)
+                            return "Password must be at least 6 characters";
                           return null;
                         },
                       ),
                       const SizedBox(height: 20),
-
                       ElevatedButton(
                         onPressed: _isLoading ? null : _validateAndSignup,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 147, 182, 138),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor:
+                              const Color.fromARGB(255, 147, 182, 138),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           minimumSize: const Size(double.infinity, 50),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : const Text(
                                 'Create Account',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18),
                               ),
                       ),
                       const SizedBox(height: 20),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -194,12 +202,14 @@ class _SignupScreenState extends State<SignupScreen> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => LoginScreen()),
+                                MaterialPageRoute(
+                                    builder: (context) => LoginScreen()),
                               );
                             },
                             child: const Text(
                               'Log in',
-                              style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
+                              style: TextStyle(
+                                  color: Color.fromARGB(255, 147, 182, 138)),
                             ),
                           ),
                         ],

@@ -34,21 +34,21 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> joinGroup(int groupId) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  String? token = prefs.getString("access_token");
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString("access_token");
 
-  if (token == null) {
-    print("No authentication token found.");
-    return;
-  }
+    if (token == null) {
+      print("No authentication token found.");
+      return;
+    }
 
     final response = await http.post(
       Uri.parse("http://127.0.0.1:8000/join-group/"),
       body: jsonEncode({"group_id": groupId}),
-      headers:{
-              "Content-Type": "application/json",
-             "Authorization": "Bearer $token"
-             },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token"
+      },
     );
 
     if (response.statusCode == 200) {
