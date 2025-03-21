@@ -1,16 +1,22 @@
+import string
+import random
+import uuid
 from django.contrib.auth import authenticate, login, logout
 from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, generics
-from rest_framework.decorators import api_view
-from django.contrib.auth.models import User
+from rest_framework.decorators import api_view,permission_classes
+from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import StudentProfile, Group, Message, TutorProfile, TutoringSession, Booking, SubjectSpecialization, Interest
-from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer, TutoringSessionSerializer, TutorProfileSerializer, BookingSerializer, TutorSignupSerializer, InterestSerializer
+from .models import StudentProfile, Group, Message
+from .serializers import StudentProfileSerializer, GroupSerializer, MessageSerializer, JoinGroupSerializer,PrivateMessageSerializer
+from django.core.cache import cache
+from django.utils.crypto import get_random_string
+from django.core.mail import send_mail
 import logging
-from rest_framework.exceptions import PermissionDenied
 
 logger = logging.getLogger(__name__)
 
@@ -19,97 +25,56 @@ class StudentProfileListCreate(generics.ListCreateAPIView):
     serializer_class = StudentProfileSerializer
     permission_classes = [AllowAny]
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import StudentProfile, Interest
-from .serializers import StudentProfileSerializer
-from django.contrib.auth import get_user_model
 
 class SignUpView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request):
-        # Get the data for creating a new user (sign-up)
-        username = request.data.get('username')
-        password = request.data.get('password')
-        email = request.data.get('email')
-        first_name = request.data.get('first_name')
-        interests = request.data.get('interests', [])  # List of interest IDs or names
-        
-        # Check if the username already exists
-        if StudentProfile.objects.filter(username=username).exists():
-            return Response({"detail": "Username already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create the new student user (StudentProfile) using the information
-        user = StudentProfile.objects.create_user(
-            username=username,
-            password=password,
-            email=email,
-            first_name=first_name,
+    def post(self, request):
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        if not email or not password:
+            return Response({"error": "Email and password are required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if StudentProfile.objects.filter(email=email).exists():
+            return Response({"error": "Email already in use"}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = get_random_string(6, allowed_chars=string.digits)
+        cache.set(email, otp, timeout=300)  # Store OTP for 5 minutes
+
+        send_mail(
+            "Your OTP Code",
+            f"Your OTP code is {otp}. It expires in 5 minutes.",
+            "noreply@example.com",  # Change to your sender email
+            [email],
+            fail_silently=False,
         )
-        user.save()
-
-        # If the user provided interests, associate them with the user
-        if interests:
-            user_interests = Interest.objects.filter(name__in=interests)
-            user.interests.set(user_interests)
-
-        return Response({"message": "Signup successful", "user_id": user.id}, status=status.HTTP_201_CREATED)
-
-        # Generate JWT tokens for the new user
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user_id': user.id,
-            'username': user.username
-        }, status=status.HTTP_201_CREATED)
-
-class InterestView(APIView):
-    permission_classes = [IsAuthenticated]  # Or AllowAny if you want everyone to access the interests
-
-    def get(self, request):
-        # Retrieve all interests (both predefined and custom)
-        interests = Interest.objects.all()
-        serializer = InterestSerializer(interests, many=True)
-        return Response({"interests": serializer.data}, status=status.HTTP_200_OK)
+        
+        return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
+    
+class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        # Extracting custom interests from the request
-        other_interests = request.data.get('other_interests', [])  # List of custom interests
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+        password = request.data.get("password")
         
-        # Handle custom interests (add them if they don't exist)
-        for interest_name in other_interests:
-            interest_name = interest_name.strip().lower()  # Normalize interest name
-            
-            # Check if the interest already exists
-            existing_interest = Interest.objects.filter(name__iexact=interest_name).first()
+        stored_otp = cache.get(email)
+        if stored_otp and stored_otp == otp:
+            cache.delete(email)  # Remove OTP after successful verification
+            temp_token = str(uuid.uuid4())  # Generate a temporary token
+            cache.set(temp_token, email, timeout=600) 
+            cache.set(f"{temp_token}_password", password, timeout=600)  
 
-            if not existing_interest:
-                # If the interest doesn't exist, create a new one
-                Interest.objects.create(name=interest_name, is_custom=True)
-
-        return Response({"detail": "Interests updated successfully"}, status=status.HTTP_200_OK)
-
-class UpdateUserInterestsView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        # Get the current user
-        user = request.user
+            return Response({
+                "message": "OTP verified.",
+                "temp_token": temp_token  # Ensure temp_token is returned
+            }, status=status.HTTP_200_OK)
         
-        # Extract the interest IDs (both predefined and custom interests)
-        selected_interests = request.data.get('interests', [])
-
-        # Convert interest names/IDs to actual Interest objects
-        interests = Interest.objects.filter(name__in=selected_interests)
-
-        # Update the user's interests
-        user.profile.interests.set(interests)
-
-        return Response({"detail": "Interests updated successfully"}, status=status.HTTP_200_OK)
-
+        return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+    
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -119,7 +84,7 @@ class LogoutView(APIView):
     
 
 class UserDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         user = request.user
@@ -129,14 +94,31 @@ class UserDetailView(APIView):
 
 
 class GroupListCreate(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
 
 
+class SendPrivateMessageView(generics.CreateAPIView):
+    serializer_class = PrivateMessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+# views.py
+class PrivateMessageListView(generics.ListAPIView):
+    serializer_class = PrivateMessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Message.objects.filter(recipient=user).order_by('-timestamp')
+
 class MessageListCreate(generics.ListCreateAPIView):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
         group = serializer.validated_data['group']
@@ -151,6 +133,8 @@ class MessageListCreate(generics.ListCreateAPIView):
 
 @api_view(['POST'])
 def join_group(request):
+    permission_classes = [AllowAny]
+
     serializer = JoinGroupSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         serializer.save()  # Add student to group
@@ -158,87 +142,222 @@ def join_group(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CompleteRegistrationView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        temp_token = request.data.get("temp_token")
+        email = cache.get(temp_token)  # Retrieve email linked to temp_token
+        logger.debug(f"Temp token: {temp_token}, Email: {email}")
+
+        if not email:
+            logger.error("Invalid or expired session.")
+            return Response({"error": "Invalid or expired session."}, status=status.HTTP_400_BAD_REQUEST)
+
+        password = cache.get(f"{temp_token}_password")
+        logger.debug(f"Password for temp token: {password}")
+
+        if not password:
+            logger.error("Session data missing or expired.")
+            return Response({"error": "Session data missing or expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+        username = request.data.get("username")
+        year_of_study = request.data.get("year_of_study")
+        course = request.data.get("course")
+        hobbies = request.data.get("hobbies")
+        piece_jobs = request.data.get("piece_jobs")
+        communication_preference=request.data.get('communication_preference')
+
+        if not StudentProfile.objects.filter(email=email).exists():
+            user = StudentProfile.objects.create_user(
+                username=username,
+                email=email,  
+                password=password, 
+                year_of_study=year_of_study,
+                course=course,
+                hobbies=hobbies,
+                piece_jobs=piece_jobs,
+                communication_preference=communication_preference
+            )
+            user.is_active = True
+            user.save()
+            cache.delete(temp_token)  # Remove temp_token after use
+
+            authenticated_user = authenticate(username=username, password=password)
+            if authenticated_user is not None:
+                login(request, authenticated_user)
+                
+                # Generate token for JWT authentication
+                refresh = RefreshToken.for_user(authenticated_user)
+                
+                return Response({
+                    "message": "Registration completed successfully",
+                    "user": {
+                        "username": authenticated_user.username,
+                        "email": authenticated_user.email,
+                    },
+                    "token": {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    }
+                }, status=status.HTTP_201_CREATED)
+            else:
+                # This should rarely happen since we just created the user
+                logger.error(f"Failed to authenticate newly created user: {username}")
+                return Response({"message": "Registration completed successfully, but auto-login failed. Please log in manually."}, 
+                               status=status.HTTP_201_CREATED)
+        
+        return Response({"error": "Email is already registered."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get("username")
+        email = request.data.get("email")
         password = request.data.get("password")
 
-        if not username or not password:
-            return Response({"error": "Username and password are required"}, status=status.HTTP_400_BAD_REQUEST)
+        logger.debug(f"Login attempt with email: {email}")  # Better to use logger than print
 
-        # Authenticate the user
-        user = authenticate(username=username, password=password)
+        if not email or not password:
+            return Response({"error": "Email and password are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user is not None and user.is_active:
-            login(request, user)
-            # Directly access the role field from the authenticated user (StudentProfile)
-            return Response({"message": "Login successful", "role": user.role})
-        else:
-            return Response({"error": "Invalid credentials or user is not active"}, status=status.HTTP_400_BAD_REQUEST)
-
+        try:
+            # Find the user by email first
+            student = StudentProfile.objects.get(email=email)
+            # Then authenticate with the correct credentials
+            user = authenticate(username=student.username, password=password)
+            
+            if user is not None and user.is_active:
+                login(request, user)
+                logger.debug(f"User logged in: {user}")
+                
+                # Generate token for JWT authentication
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    "message": "Login successful",
+                    "user": {
+                        "username": user.username,
+                        "email": user.email,
+                    },
+                    "token": {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                logger.debug("Authentication failed")
+                return Response({"error": "Invalid credentials or user is not active"}, status=status.HTTP_401_UNAUTHORIZED)
+                
+        except StudentProfile.DoesNotExist:
+            logger.warning(f"Login attempt with non-existent email: {email}")
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        
 @api_view(['GET'])
 def study_groups(request):
     """
     Returns only study-related groups.
     """
     # Filter groups that have both `field_of_study` and `year_of_study` set.
-    study_groups = Group.objects.filter(field_of_study__isnull=False, year_of_study__isnull=False)
+    study_groups = Group.objects.filter(course__isnull=False, year_of_study__isnull=False)
     serializer = GroupSerializer(study_groups, many=True)
+    
     return Response(serializer.data)
 
 @api_view(['GET'])
-def interest_groups(request):
+def hobby_groups(request):
     """
     Returns only interest-related groups.
     """
     # Filter groups that have `field_of_study` and `year_of_study` set to None.
-    interest_groups = Group.objects.filter(field_of_study__isnull=True, year_of_study__isnull=True)
-    serializer = GroupSerializer(interest_groups, many=True)
+    hobby_groups = Group.objects.filter(course__isnull=True, year_of_study__isnull=True)
+    serializer = GroupSerializer(hobby_groups, many=True)
     return Response(serializer.data)
 
-class TutorSignupView(APIView):
-    def post(self, request):
-        serializer = TutorSignupSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            # Create the tutor profile
-            tutor_profile = serializer.save()
-            return Response({
-                "message": "Tutor registration successful",
-                "data": {
-                    "available_times": tutor_profile.available_times,
-                    "subjects": [subject.name for subject in tutor_profile.subjects.all()]
-                }
-            }, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def group_messages(request, group_id):
+    """
+    Get all messages for a specific group.
+    """
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    if not group.members.filter(id=request.user.id).exists():
+        return Response(
+            {"error": "You are not a member of this group"}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get the messages for the group, ordered by timestamp
+    messages = Message.objects.filter(group=group).order_by('timestamp')
+    serializer = MessageSerializer(messages, many=True, context={'request': request})
+    
+    return Response(serializer.data)
 
-class TutorSessionCreateView(APIView):
-    def post(self, request, *args, **kwargs):
-        tutor_profile = request.user.tutor_profile  # Assuming user is a StudentProfile with TutorProfile
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def group_detail(request, group_id):
+    """
+    Get detailed information about a specific group.
+    """
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    is_member = group.members.filter(id=request.user.id).exists()
+    
+    serializer = GroupSerializer(group, context={'request': request})
+    
+    return Response(serializer.data)
 
-        # Check if the tutor is approved
-        if not tutor_profile.is_approved:
-            raise PermissionDenied("Your tutor profile is awaiting admin approval.")
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def leave_group(request):
+    """
+    Leave a group.
+    """
+    group_id = request.data.get('group_id')
+    if not group_id:
+        return Response({"error": "group_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    if not group.members.filter(id=request.user.id).exists():
+        return Response(
+            {"error": "You are not a member of this group"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Remove the user from the group
+    group.members.remove(request.user)
+    
+    return Response({"message": "You have left the group"}, status=status.HTTP_200_OK)
 
-# View for listing available tutors
-class AvailableTutorsView(generics.ListAPIView):
-    queryset = TutorProfile.objects.all()
-    serializer_class = TutorProfileSerializer
-    permission_classes = [IsAuthenticated]
-
-# View for booking a tutor
-class BookTutorView(generics.CreateAPIView):
-    queryset = Booking.objects.all()
-    serializer_class = BookingSerializer
-    permission_classes = [IsAuthenticated]
-
-# View for viewing all booked sessions
-class StudentSessionsView(generics.ListAPIView):
-    queryset = TutoringSession.objects.all()
-    serializer_class = TutoringSessionSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filter(student=self.request.user)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_messages_read(request):
+    """
+    Mark all messages in a group as read.
+    This is a placeholder - you'll need to implement your own read/unread tracking.
+    """
+    group_id = request.data.get('group_id')
+    if not group_id:
+        return Response({"error": "group_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Check if the user is a member of the group
+    if not group.members.filter(id=request.user.id).exists():
+        return Response(
+            {"error": "You are not a member of this group"}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Implement read/unread tracking here
+    # This is a placeholder - you'll need to create a model to track read/unread status
+    
+    return Response({"message": "Messages marked as read"}, status=status.HTTP_200_OK)

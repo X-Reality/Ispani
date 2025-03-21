@@ -1,31 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:ispani/Login.dart';
 import 'package:ispani/Otp.dart';
-
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: SignupScreen(),
-  ));
-}
+import 'package:ispani/Register.dart';
+import 'package:ispani/services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  const SignupScreen({Key? key}) : super(key: key);
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _formKey = GlobalKey<FormState>(); // Key for form validation
+  final _authService = AuthService();
+  final _formKey = GlobalKey<FormState>(); 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  void _validateAndLogin() {
+  Future<void> _validateAndSignup() async {
     if (_formKey.currentState!.validate()) {
-      // Navigate if form is valid
-      Navigator.push(context,MaterialPageRoute(builder: (context) => OtpScreen()),);
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final result = await _authService.signup(
+          _emailController.text,
+          _passwordController.text,
+        );
+
+        if (result['success']) {
+          // Check if the message indicates OTP was sent
+          final responseData = result['response'];
+          if (responseData is Map<String, dynamic> && 
+              responseData['message']?.contains('OTP sent') == true) {
+            
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OtpScreen(
+                  email: _emailController.text,
+                  password: _passwordController.text,
+                ),
+              ),
+            );
+          } else {
+            _showErrorDialog('Unexpected response from server');
+          }
+        } else {
+          String errorMessage = 'Signup failed';
+          
+          if (result.containsKey('response') && 
+              result['response'] is Map<String, dynamic> &&
+              result['response'].containsKey('message')) {
+            errorMessage = result['response']['message'];
+          } else if (result.containsKey('error')) {
+            errorMessage = result['error'];
+          }
+          
+          _showErrorDialog(errorMessage);
+        }
+      } catch (e) {
+        _showErrorDialog('Error: $e');
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Signup Failed"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -34,37 +95,25 @@ class _SignupScreenState extends State<SignupScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Background Image
             Container(
               width: double.infinity,
               height: 300,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage("assets/3203866.jpg"),
                   fit: BoxFit.cover,
                 ),
               ),
-              child: Center(
-                child: Text(
-                  "",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ),
 
-            // Move Form Up to Overlap Background
             Transform.translate(
-              offset: Offset(0, -50),
+              offset: const Offset(0, -50),
               child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
@@ -72,134 +121,89 @@ class _SignupScreenState extends State<SignupScreen> {
                     BoxShadow(
                       color: Colors.black26,
                       blurRadius: 10,
-                      offset: Offset(0, -4),
+                      offset: const Offset(0, -4),
                     ),
                   ],
                 ),
                 child: Form(
-                  key: _formKey, // Attach form key
+                  key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      const Text(
                         'Create an Account',
-                        style: TextStyle(
-                          fontSize: 35,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 10),
-                      Text(
-                        'Please enter your credentials to continue.',
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 10),
+                      const Text('Please enter your credentials to continue.', textAlign: TextAlign.center),
+                      const SizedBox(height: 20),
 
-                      // Email TextField
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
                           labelText: "Email",
-                          hintText: "Enter your email",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           filled: true,
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Email is required";
-                          } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                            return "Enter a valid email";
-                          }
+                          if (value == null || value.isEmpty) return "Email is required";
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return "Enter a valid email";
                           return null;
                         },
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                      // Password TextField
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
                         decoration: InputDecoration(
                           labelText: "Password",
-                          hintText: "Enter your password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           filled: true,
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Password is required";
-                          } else if (value.length < 6) {
-                            return "Password must be at least 6 characters";
-                          }
+                          if (value == null || value.isEmpty) return "Password is required";
+                          if (value.length < 6) return "Password must be at least 6 characters";
                           return null;
                         },
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                      // Password TextField
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: " Confirm Password",
-                          hintText: "Enter your password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Password is required";
-                          } else if (value.length < 6) {
-                            return "Password must be at least 6 characters";
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: 30),
-                      // Login Button
                       ElevatedButton(
-                        onPressed: _validateAndLogin, // Validate form on click
+                        onPressed: _isLoading ? null : _validateAndSignup,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color.fromARGB(255, 147, 182, 138),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          minimumSize: Size(double.infinity, 50),
+                          backgroundColor: const Color.fromARGB(255, 147, 182, 138),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(double.infinity, 50),
                         ),
-                        child: Text(
-                          'Create Account',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                'Create Account',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                              ),
                       ),
-                      SizedBox(height: 270),
-                      Center(
-                        child:  Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Have an account, '),
-                            InkWell(
-                              onTap: (){
-                                Navigator.push(context,MaterialPageRoute(builder: (context) => LoginScreen()),);
-                              },
-                              child: Text('Log in',style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),),
-                            )
-                          ],
-                        ),
+                      const SizedBox(height: 20),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Have an account? '),
+                          InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => LoginScreen()),
+                              );
+                            },
+                            child: const Text(
+                              'Log in',
+                              style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 10),
                     ],
                   ),
                 ),
