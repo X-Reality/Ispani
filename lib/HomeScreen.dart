@@ -141,7 +141,8 @@ class CustomBottomNavigationBar extends StatelessWidget {
           ),
           label: "",
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.supervised_user_circle), label: "Groups"),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.supervised_user_circle), label: "Groups"),
         BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
       ],
     );
@@ -190,10 +191,14 @@ class HomeTabScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Communities", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text("Communities",
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 TextButton(
                   onPressed: () {},
-                  child: Text("View all", style: TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
+                  child: Text("View all",
+                      style:
+                          TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
                 ),
               ],
             ),
@@ -202,7 +207,8 @@ class HomeTabScreen extends StatelessWidget {
               children: List.generate(4, (index) => _buildCommunityItem()),
             ),
             SizedBox(height: 20),
-            Text("Explore", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text("Explore",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(height: 10),
             _buildServiceItems(context),
           ],

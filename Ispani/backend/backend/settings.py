@@ -101,7 +101,7 @@ CSRF_USE_SESSIONS = True  # Store CSRF token in session instead of cookie
 CSRF_COOKIE_HTTPONLY = False  # JS needs access to the token
 
 ROOT_URLCONF = 'backend.urls'
-AUTH_USER_MODEL = 'myapp.StudentProfile' 
+AUTH_USER_MODEL = 'myapp.CustomUser'
 
 CORS_ALLOW_ALL_ORIGINS = True # development only
 
@@ -131,7 +131,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR /'db.sqlite3',
     }
 }
 
@@ -192,3 +192,8 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# Stripe settings
+STRIPE_SECRET_KEY = 'your_stripe_secret_key'
+STRIPE_PUBLISHABLE_KEY = 'your_stripe_publishable_key'
+STRIPE_WEBHOOK_SECRET = 'your_webhook_secret'

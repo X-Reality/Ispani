@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ispani/Login.dart';
 
 void main() {
-  runApp(const MaterialApp(
-    home: Welcomescreen3(),
-  ));
+  runApp(const Welcomescreen3());
 }
-
 class Welcomescreen3 extends StatefulWidget {
   const Welcomescreen3({super.key});
 
@@ -20,16 +17,14 @@ class _Welcomescreen3State extends State<Welcomescreen3> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: SingleChildScrollView( // Added this to make the content scrollable
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+          child: Padding(padding: EdgeInsets.all(16),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 30),
+                SizedBox(height: 30,),
                 Image.asset('assets/undraw_connected-world_anke.png'),
-                const SizedBox(height: 26),
-                const Text(
+                SizedBox(height: 26,),
+                Text(
                   'Connect with US',
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
@@ -37,51 +32,47 @@ class _Welcomescreen3State extends State<Welcomescreen3> {
                     fontFamily: 'Poppins',
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
+                SizedBox(height: 16,),
+                Text(
                   '500K+ Members',
                   style: TextStyle(
                     fontWeight: FontWeight.w300,
                     fontSize: 15,
                   ),
                 ),
-                const SizedBox(height: 56),
-                Text(
-                  'We’re excited to help you take the next step in your career. Whether you’re looking for your dream job or the perfect candidate, you’ve come to the right place. Explore job opportunities, connect with employers, and find your perfect match today. Let’s build the future together!',
+                SizedBox(height: 56,),
+                Text('We’re excited to help you take the next step in your career. Whether you’re looking for your dream job or the perfect candidate, you’ve come to the right place.Explore job opportunities, connect with'
+                    'employers, and find your perfect match today. Lets build the future together!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     color: Colors.grey[700],
                   ),
                 ),
-                const SizedBox(height: 56), // Reduced this to prevent overflow
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => LoginScreen()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 147, 182, 138),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                SizedBox(height: 180,),
+                ElevatedButton(onPressed: () {
+                  Navigator.push(context,MaterialPageRoute(builder: (context) => LoginScreen()),);
+                },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color.fromARGB(255, 147, 182, 138), // Change background color
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12), // Change border radius
+                      ),
+                      minimumSize: Size(double.infinity, 50), // Make it full width
                     ),
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
+                    child: Text('Login',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    )),
+
               ],
             ),
-          ),
-        ),
+
+          )
+
       ),
     );
   }
