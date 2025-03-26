@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -129,7 +128,8 @@ class AuthService {
       }
 
       return {
-        'success': response.statusCode == 200 && data['message'] == 'Login successful',
+        'success':
+            response.statusCode == 200 && data['message'] == 'Login successful',
         'statusCode': response.statusCode,
         'response': data,
       };
@@ -139,7 +139,8 @@ class AuthService {
   }
 
   // Submit registration form
-  Future<Map<String, dynamic>> submitRegistration(Map<String, dynamic> formData) async {
+  Future<Map<String, dynamic>> submitRegistration(
+      Map<String, dynamic> formData) async {
     try {
       final token = await getAccessToken();
 

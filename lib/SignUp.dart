@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ispani/Login.dart';
 import 'package:ispani/Otp.dart';
-import 'package:ispani/Register.dart';
 import 'package:ispani/services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {

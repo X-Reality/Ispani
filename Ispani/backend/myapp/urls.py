@@ -1,32 +1,53 @@
-from django.urls import path, re_path
+from django.urls import path, re_path,include
 from . import views
 from .views import * 
 from . import consumers
+from .consumers import PrivateChatConsumer, ChatConsumer 
 
 
 urlpatterns = [
-    path('signup/', SignUpView.as_view(), name='signup'),
-     path('users/', StudentProfileListCreate.as_view(), name='users'),
-    path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
-    path('register/', CompleteRegistrationView.as_view(), name='register'),
-    path('login/', LoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
+    # Authentication URLs
+    path('signup/', views.SignUpView.as_view(), name='signup'),
+    path('verify-otp/', views.VerifyOTPView.as_view(), name='verify-otp'),
+    path('complete-registration/', views.CompleteRegistrationView.as_view(), name='complete-registration'),
+    path('login/', views.LoginView.as_view(), name='login'),
+    path('logout/', views.LogoutView.as_view(), name='logout'),
+    
+    # User Profile URLs
+    path('user/', views.UserDetailView.as_view(), name='user-detail'),
+    path('user/status/', views.UpdateUserStatusView.as_view(), name='user-status'),
+    path('user/switch-role/', views.SwitchRoleView.as_view(), name='switch-role'),
+    
+    # Group URLs
+    path('groups/create/', views.CreateGroupView.as_view(), name='create-group'),
+    path('groups/join/', views.join_group, name='join-group'),
+    path('groups/join-by-invite/', views.join_group_by_invite, name='join-group-by-invite'),
+    path('groups/study/', views.study_groups, name='study-groups'),
+    path('groups/hobby/', views.hobby_groups, name='hobby-groups'),
+    path('groups/<int:group_id>/manage/', views.GroupManagementView.as_view(), name='group-management'),
+    
+    # Chat URLs
+    path('chat/rooms/', views.ChatRoomListCreateView.as_view(), name='chat-room-list'),
+    path('chat/rooms/<int:room_id>/messages/', views.ChatMessageListView.as_view(), name='room-messages'),
+    path('chat/rooms/<int:room_id>/send/', views.SendMessageView.as_view(), name='send-message'),
+    
+    # Private Chat URLs
+    path('chat/private/', views.PrivateChatListCreateView.as_view(), name='private-chat'),
+    path('chat/private/<int:chat_id>/messages/', views.PrivateMessageListView.as_view(), name='private-messages'),
+    path('chat/private/<int:chat_id>/send/', views.SendPrivateMessageView.as_view(), name='send-private-message'),
+    
+    # Search URL
+    path('find-students/', views.FindStudentsView.as_view(), name='find-students'),
 
-
-    path('groups/', GroupListCreate.as_view(), name='group-list-create'),
-    path('study-groups/', study_groups, name='study-groups'),
-    path('hobby-groups/', hobby_groups, name='hobby-groups'),
-    path('join-group/', join_group, name='join-group'),
-    path('groups/<int:group_id>/', views.group_detail, name='group-detail'),
-    path('groups/<int:group_id>/messages/', views.group_messages, name='group-messages'),
-    path('leave-group/', views.leave_group, name='leave-group'),
-
-    path('messages/', MessageListCreate.as_view(), name='message-list-create'),
-    path('messages/private/', SendPrivateMessageView.as_view(), name='send_private_message'),
-    path('messages/private/inbox/', PrivateMessageListView.as_view(), name='private_message_list'),
-    path('mark-messages-read/', views.mark_messages_read, name='mark-messages-read'),
+    path('tutor/availability/', views.TutorAvailabilityView.as_view(), name='tutor-availability'),
+    path('bookings/', views.BookingView.as_view(), name='bookings'),
+    path('bookings/<int:pk>/', views.BookingDetailView.as_view(), name='booking-detail'),
+    path('webhook/', views.WebhookView.as_view(), name='stripe-webhook'),
+    
 ]
 
 websocket_urlpatterns = [
     re_path(r'ws/chat/(?P<group_id>\d+)/$', consumers.ChatConsumer.as_asgi()),
+    re_path(r'ws/private-chat/(?P<chat_id>\d+)/$',consumers.PrivateChatConsumer.as_asgi()),
+    
 ]

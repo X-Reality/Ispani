@@ -1,122 +1,115 @@
 from rest_framework import serializers
-from .models import StudentProfile, Group, Message
+from django.utils import timezone
+from .models import (
+    CustomUser, StudentProfile, TutorProfile, Group, 
+    ChatMessage, UserStatus, GroupMembership, MessageAttachment,
+    ChatRoom, PrivateChat, PrivateMessage,Booking,Payment,TutorAvailability
+)
 from rest_framework.exceptions import ValidationError
+from django.contrib.auth.hashers import make_password
+
+class UserStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserStatus
+        fields = ['is_online', 'last_active', 'status_message']
 
 class StudentProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentProfile
+        fields = ['year_of_study', 'course', 'hobbies', 'piece_jobs', 'communication_preference']
+
+class TutorProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TutorProfile
+        fields = ['subject_expertise', 'hourly_rate', 'qualifications', 'availability', 'verification_status']
+
+class UserSerializer(serializers.ModelSerializer):
+    student_profile = StudentProfileSerializer(required=False)
+    tutor_profile = TutorProfileSerializer(required=False)
+    status = UserStatusSerializer(read_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'role', 'student_profile', 'tutor_profile', 'status']
+        extra_kwargs = {'password': {'write_only': True}}
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    student_profile = StudentProfileSerializer(required=False)
+    tutor_profile = TutorProfileSerializer(required=False)
     password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = StudentProfile
-        fields = ['id', 'username', 'email', 'password', 'year_of_study', 'course', 'hobbies', 'piece_jobs','communication_preference']
+        model = CustomUser
+        fields = ['username', 'email', 'password', 'role', 'student_profile', 'tutor_profile']
+        extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # Create a new user with a hashed password
-        user = StudentProfile.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password'],
-            email=validated_data.get('email'),
-
-            year_of_study=validated_data.get('year_of_study'),
-            course=validated_data.get('course'),
-            hobbies=validated_data.get('hobbies'),
-            piece_jobs=validated_data.get('piece_jobs'),
-            communication_preference=validated_data.get('communication_preference')
-
-        )
-        user.is_active = True
-        user.save()
-
-        # Automatically assign the user to groups
-        self.assign_to_study_groups(user)
-        self.assign_to_hobby_groups(user)
-
+        student_profile_data = validated_data.pop('student_profile', None)
+        tutor_profile_data = validated_data.pop('tutor_profile', None)
+        
+        # Hash password
+        validated_data['password'] = make_password(validated_data['password'])
+        
+        user = CustomUser.objects.create(**validated_data)
+        
+        if user.role == 'student' and student_profile_data:
+            StudentProfile.objects.create(user=user, **student_profile_data)
+        elif user.role == 'tutor' and tutor_profile_data:
+            TutorProfile.objects.create(user=user, **tutor_profile_data)
+        
         return user
 
-    def assign_to_study_groups(self, user):
-        course = user.course
-        year_of_study = user.year_of_study
-
-        if course and year_of_study:
-            group, created = Group.objects.get_or_create(
-                name=f"{course} - Year {year_of_study}",
-                field_of_study=course,
-                year_of_study=year_of_study,
-            )
-            group.members.add(user)
-
-    def assign_to_hobby_groups(self, user):
-        hobbies = user.hobbies
-        if hobbies:
-            for hobby in hobbies.split(','):
-                hobby = hobby.strip()
-                if hobby:
-                    group, created = Group.objects.get_or_create(
-                        name=f"{hobby} Community",
-                        field_of_study=None,
-                        year_of_study=None,
-                    )
-                    group.members.add(user)
-
-
-class MessageSerializer(serializers.ModelSerializer):
-    sender = StudentProfileSerializer(read_only=True)
-    
-    class Meta:
-        model = Message
-        fields = ['id', 'content', 'timestamp', 'sender', 'group','recipient']
-
-class PrivateMessageSerializer(serializers.ModelSerializer):
-    sender = StudentProfileSerializer(read_only=True)
-    recipient = StudentProfileSerializer(read_only=True)
+class GroupMembershipSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
 
     class Meta:
-        model = Message
-        fields = ['id', 'content', 'timestamp', 'sender', 'recipient']
-
-
+        model = GroupMembership
+        fields = ['user', 'role', 'joined_at', 'muted_until']
 
 class GroupSerializer(serializers.ModelSerializer):
-    members = StudentProfileSerializer(many=True, read_only=True)
-    messages = serializers.SerializerMethodField()
-    last_message = serializers.SerializerMethodField()
-    last_message_time = serializers.SerializerMethodField()
-    unread_count = serializers.SerializerMethodField()
-    is_member = serializers.SerializerMethodField()
-    
+    members = UserSerializer(many=True, read_only=True)
+    admin = UserSerializer(read_only=True)
+
     class Meta:
         model = Group
-        fields = ['id', 'name', 'members', 'course', 'year_of_study', 
-                  'messages', 'last_message', 'last_message_time', 'unread_count', 'is_member']
-    
-    def get_messages(self, obj):
-        # Only fetch the last 20 messages for performance
-        recent_messages = Message.objects.filter(group=obj).order_by('-timestamp')[:20]
-        return MessageSerializer(recent_messages, many=True).data
-    
-    def get_last_message(self, obj):
-        last_message = Message.objects.filter(group=obj).order_by('-timestamp').first()
-        if last_message:
-            return f"{last_message.sender.username}: {last_message.content[:30]}"
-        return None
-    
-    def get_last_message_time(self, obj):
-        last_message = Message.objects.filter(group=obj).order_by('-timestamp').first()
-        if last_message:
-            return last_message.timestamp.isoformat()
-        return None
-    
-    def get_unread_count(self, obj):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            # Replace this with your actual unread message counting logic
-            return Message.objects.filter(group=obj).count()  # Placeholder
-        return 0
-    
-    def get_is_member(self, obj):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            return obj.members.filter(id=request.user.id).exists()
-        return False
+        fields = '__all__'
+
+class ChatRoomSerializer(serializers.ModelSerializer):
+    members = UserSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatRoom
+        fields = ['id', 'name', 'chat_type', 'members', 'created_at']
+
+class MessageAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageAttachment
+        fields = ['id', 'file', 'attachment_type', 'thumbnail']
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+    attachments = MessageAttachmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'room', 'sender', 'content', 'attachments', 'timestamp']
+        read_only_fields = ['sender', 'timestamp']
+
+class PrivateChatSerializer(serializers.ModelSerializer):
+    user1 = UserSerializer(read_only=True)
+    user2 = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PrivateChat
+        fields = ['id', 'user1', 'user2', 'created_at']
+
+class PrivateMessageSerializer(serializers.ModelSerializer):
+    sender = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PrivateMessage
+        fields = ['id', 'chat', 'sender', 'content', 'timestamp']
+        read_only_fields = ['sender', 'timestamp']
 
 class JoinGroupSerializer(serializers.Serializer):
     group_id = serializers.IntegerField()
@@ -131,7 +124,58 @@ class JoinGroupSerializer(serializers.Serializer):
     def save(self):
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
-            student_profile = request.user
-            self.group.members.add(student_profile)
+            user = request.user
+            self.group.members.add(user)
             return self.group
         raise serializers.ValidationError("User must be authenticated to join a group")
+
+class TutorAvailabilitySerializer(serializers.ModelSerializer):
+    tutor = UserSerializer(read_only=True)
+    is_available = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TutorAvailability
+        fields = ['id', 'tutor', 'start_time', 'end_time', 'is_booked', 'is_available']
+        read_only_fields = ['id', 'tutor', 'is_booked']
+
+    def get_is_available(self, obj):
+        return obj.start_time > timezone.now() and not obj.is_booked
+
+class BookingSerializer(serializers.ModelSerializer):
+    student = UserSerializer(read_only=True)
+    tutor = UserSerializer(read_only=True)
+    availability = TutorAvailabilitySerializer(read_only=True)
+    
+    class Meta:
+        model = Booking
+        fields = '__all__'
+        read_only_fields = ['student', 'tutor', 'status', 'created_at', 'updated_at']
+
+class CreateBookingSerializer(serializers.ModelSerializer):
+    availability_id = serializers.IntegerField(write_only=True)
+    
+    class Meta:
+        model = Booking
+        fields = ['availability_id', 'subject', 'notes', 'duration_minutes']
+    
+    def validate(self, data):
+        availability = TutorAvailability.objects.filter(
+            id=data['availability_id'],
+            is_booked=False,
+            start_time__gt=timezone.now()
+        ).first()
+        
+        if not availability:
+            raise serializers.ValidationError("This time slot is not available")
+        
+        data['availability'] = availability
+        data['tutor'] = availability.tutor
+        data['student'] = self.context['request'].user
+        data['price'] = availability.tutor.tutor_profile.hourly_rate * (data['duration_minutes'] / 60)
+        
+        return data
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = '__all__'
