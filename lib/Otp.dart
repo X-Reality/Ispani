@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ispani/Register.dart';
-import 'package:ispani/HomeScreen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String email;
