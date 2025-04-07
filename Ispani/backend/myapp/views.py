@@ -55,7 +55,6 @@ from .serializers import (
     JoinGroupSessionSerializer
 
 )
-from Ispani.Ispani.backend.myapp import models
 
 logger = logging.getLogger(__name__)
 
