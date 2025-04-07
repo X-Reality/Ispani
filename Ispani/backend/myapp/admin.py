@@ -1,10 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
+    CalendlyEvent,
     CustomUser,
+    ExternalCalendarConnection,
+    MeetingProvider,
     StudentProfile,
     TutorProfile,
-    Group,Event, EventParticipant, 
+    Group,Event,EventParticipant, 
     EventTag, EventComment, EventMedia,
     ChatRoom,
     ChatMessage,
@@ -180,3 +183,15 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     list_display = ('message', 'attachment_type', 'file')
     search_fields = ('message__content',)
     raw_id_fields = ('message',)
+
+@admin.register(ExternalCalendarConnection)
+class ExternalCalendarConnectionAdmin(admin.ModelAdmin):
+    list_display = ('provider', 'calendly_username', 'is_active')
+
+@admin.register(MeetingProvider)
+class MeetingProviderAdmin(admin.ModelAdmin):
+    list_display = ('provider', 'is_default', 'is_active')
+
+@admin.register(CalendlyEvent)
+class CalendlyEventAdmin(admin.ModelAdmin):
+    list_display = ('event_type_name', 'invitee_name', 'start_time', 'status')
