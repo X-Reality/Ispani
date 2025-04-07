@@ -4,7 +4,8 @@ from .models import (
     CustomUser,
     StudentProfile,
     TutorProfile,
-    Group,
+    Group,Event, EventParticipant, 
+    EventTag, EventComment, EventMedia,
     ChatRoom,
     ChatMessage,
     PrivateChat,
@@ -74,6 +75,41 @@ class BookingAdmin(admin.ModelAdmin):
         return obj.availability.start_time
     start_time.short_description = 'Start Time'
     start_time.admin_order_field = 'availability__start_time'
+
+# Event scheduling
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ('title', 'creator', 'start_time', 'end_time', 'is_public')
+    search_fields = ('title', 'creator__username')
+    list_filter = ('is_public', 'start_time')
+    ordering = ('-start_time',)
+
+@admin.register(EventParticipant)
+class EventParticipantAdmin(admin.ModelAdmin):
+    list_display = ('event', 'user', 'role', 'status', 'joined_at')
+    search_fields = ('event__title', 'user__username')
+    list_filter = ('role', 'status')
+    ordering = ('-joined_at',)
+
+@admin.register(EventTag)
+class EventTagAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+@admin.register(EventComment)
+class EventCommentAdmin(admin.ModelAdmin):
+    list_display = ('event', 'user', 'content', 'created_at')
+    search_fields = ('event__title', 'user__username', 'content')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
+
+@admin.register(EventMedia)
+class EventMediaAdmin(admin.ModelAdmin):
+    list_display = ('event', 'media_type', 'title', 'uploaded_by', 'uploaded_at')
+    search_fields = ('event__title', 'uploaded_by__username', 'title')
+    list_filter = ('media_type', 'uploaded_at')
+    ordering = ('-uploaded_at',)
+
 
 # Payment Admin (new)
 @admin.register(Payment)

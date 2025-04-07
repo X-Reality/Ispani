@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 from django.conf import settings
+from decouple import config
 from django.conf.urls.static import static
 import os
  
@@ -14,6 +15,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-^(7*$%x_168p%s$fxq5tpfn3h-!6w9f4il8+6=l0x-g&temr$*'
+
+#Calendly API
+
+CALENDLY_TOKEN = 'eyJraWQiOiIxY2UxZTEzNjE3ZGNmNzY2YjNjZWJjY2Y4ZGM1YmFmYThhNjVlNjg0MDIzZjdjMzJiZTgzNDliMjM4MDEzNWI0IiwidHlwIjoiUEFUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJodHRwczovL2F1dGguY2FsZW5kbHkuY29tIiwiaWF0IjoxNzQzOTYyOTI1LCJqdGkiOiIwYTk4YjRhYS00ZGRmLTRhZDUtYjk3MC1jZmNjODU1YmI2YjMiLCJ1c2VyX3V1aWQiOiI4NzYyNDIzNy0xMzE2LTRhNTktYjUyOC02MmM0MDU1Yjg2MjMifQ.AhyI6-LZiRXJTsg7hi2wOrP0ckqvgBPuEL06rbRk2a51aWmT4rtC48pPVzlgiNWaQfAgtKycBb-w6K4ycpjrpw'
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', cast=bool)
+CALENDLY_API_KEY = config('CALENDLY_API_KEY')
+
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True

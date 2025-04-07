@@ -201,6 +201,80 @@ class TutorAvailability(models.Model):
     def __str__(self):
         return f"{self.tutor.username} available from {self.start_time} to {self.end_time}"
 
+class ExternalCalendarConnection(models.Model):
+    """Model to store tutor's external calendar connections"""
+    PROVIDER_CHOICES = [
+        ('calendly', 'Calendly'),
+        ('google', 'Google Calendar'),
+        ('microsoft', 'Microsoft Calendar'),
+    ]
+    
+    user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='calendar_connections')
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider_user_id = models.CharField(max_length=255, blank=True, null=True)
+    access_token = models.TextField()
+    refresh_token = models.TextField(blank=True, null=True)
+    token_expires_at = models.DateTimeField(blank=True, null=True)
+    calendly_username = models.CharField(max_length=255, blank=True, null=True)
+    calendly_uri = models.URLField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['user', 'provider']
+        
+    def __str__(self):
+        return f"{self.user.username}'s {self.get_provider_display()} connection"
+
+class MeetingProvider(models.Model):
+    """Model to store tutor's preferred meeting platforms"""
+    PROVIDER_CHOICES = [
+        ('zoom', 'Zoom'),
+        ('google_meet', 'Google Meet'),
+        ('microsoft_teams', 'Microsoft Teams'),
+        ('jitsi', 'Jitsi Meet'),
+    ]
+    
+    user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='meeting_providers')
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    provider_user_id = models.CharField(max_length=255, blank=True, null=True)
+    access_token = models.TextField(blank=True, null=True)
+    refresh_token = models.TextField(blank=True, null=True)
+    token_expires_at = models.DateTimeField(blank=True, null=True)
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['user', 'provider']
+        
+    def __str__(self):
+        return f"{self.user.username}'s {self.get_provider_display()} connection"
+
+class CalendlyEvent(models.Model):
+    """Model to store Calendly event details"""
+    tutor = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='calendly_events')
+    calendly_event_id = models.CharField(max_length=255, unique=True)
+    calendly_event_uri = models.URLField()
+    event_type_name = models.CharField(max_length=255)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    invitee_email = models.EmailField()
+    invitee_name = models.CharField(max_length=255)
+    location = models.TextField(blank=True, null=True)
+    cancellation_url = models.URLField(blank=True, null=True)
+    reschedule_url = models.URLField(blank=True, null=True)
+    status = models.CharField(max_length=20, default='active')
+    is_group_event = models.BooleanField(default=False)
+    max_participants = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.tutor.username}'s event: {self.event_type_name}"
+        
+# Update your existing Booking model
 class Booking(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -208,29 +282,166 @@ class Booking(models.Model):
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     ]
+    
+    BOOKING_SOURCE_CHOICES = [
+        ('internal', 'App Booking'),
+        ('calendly', 'Calendly Booking'),
+    ]
 
-    student = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='student_bookings')
-    tutor = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='tutor_bookings')
-    availability = models.OneToOneField(TutorAvailability, on_delete=models.CASCADE)
+    student = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='student_bookings')
+    tutor = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='tutor_bookings')
+    availability = models.OneToOneField('TutorAvailability', on_delete=models.CASCADE, null=True, blank=True)
     subject = models.CharField(max_length=100)
     notes = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    booking_source = models.CharField(max_length=20, choices=BOOKING_SOURCE_CHOICES, default='internal')
     meeting_link = models.URLField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     duration_minutes = models.PositiveIntegerField(default=60, validators=[MinValueValidator(15), MaxValueValidator(240)])
-
+    is_group_session = models.BooleanField(default=False)
+    max_participants = models.PositiveIntegerField(default=1)
+    current_participants = models.PositiveIntegerField(default=1)
+    calendly_event = models.ForeignKey(CalendlyEvent, on_delete=models.SET_NULL, null=True, blank=True, related_name='bookings')
+    
     def __str__(self):
         return f"Booking #{self.id} - {self.student.username} with {self.tutor.username}"
 
+class GroupSessionParticipant(models.Model):
+    """Model to store participants of group sessions"""
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='participants')
+    student = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='group_sessions')
+    payment_status = models.CharField(max_length=20, default='pending')
+    joined_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['booking', 'student']
+        
+    def __str__(self):
+        return f"{self.student.username} in {self.booking}"
+
+# Update your existing Payment model to handle group sessions
 class Payment(models.Model):
-    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='payment')
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+    
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='payments')
+    student = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_intent_id = models.CharField(max_length=100)
-    status = models.CharField(max_length=20, default='pending')
+    provider = models.CharField(max_length=20, default='stripe')
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     paid_at = models.DateTimeField(null=True, blank=True)
-
+    
     def __str__(self):
-        return f"Payment for Booking #{self.booking.id}"
+        return f"Payment for {self.student.username} - Booking #{self.booking.id}"
+
+
+class Event(models.Model):
+    EVENT_TYPE_CHOICES = [
+        ('social', 'Social Gathering'),
+        ('sports', 'Sports Activity'),
+        ('game', 'Game Night'),
+        ('study', 'Group Study'),
+        ('outdoor', 'Outdoor Activity'),
+        ('arts', 'Arts & Crafts'),
+        ('other', 'Other')
+    ]
+    
+    RECURRENCE_CHOICES = [
+        ('one-time', 'One-time Event'),
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('biweekly', 'Every Two Weeks'),
+        ('monthly', 'Monthly')
+    ]
+    
+    title = models.CharField(max_length=100)
+    description = models.TextField()
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
+    creator = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='created_events')
+    location = models.CharField(max_length=200)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    max_participants = models.PositiveIntegerField(default=10)
+    is_public = models.BooleanField(default=True)
+    recurrence = models.CharField(max_length=20, choices=RECURRENCE_CHOICES, default='one-time')
+    recurrence_end_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    invite_link = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    tags = models.ManyToManyField('EventTag', related_name='events', blank=True)
+    
+    def clean(self):
+        if self.start_time >= self.end_time:
+            raise ValidationError("End time must be after start time")
+        if self.recurrence != 'one-time' and not self.recurrence_end_date:
+            raise ValidationError("Recurring events must have an end date")
+        
+    def __str__(self):
+        return f"{self.title} - {self.start_time.strftime('%d %b %Y, %H:%M')}"
+
+class EventParticipant(models.Model):
+    ROLE_CHOICES = [
+        ('organizer', 'Organizer'),
+        ('participant', 'Participant')
+    ]
+    
+    STATUS_CHOICES = [
+        ('invited', 'Invited'),
+        ('going', 'Going'),
+        ('maybe', 'Maybe'),
+        ('declined', 'Declined')
+    ]
+    
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='participants')
+    user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='events')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='participant')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='going')
+    joined_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('event', 'user')
+        
+    def __str__(self):
+        return f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
+
+class EventTag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+class EventComment(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='event_comments')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Comment by {self.user.username} on {self.event.title}"
+
+class EventMedia(models.Model):
+    MEDIA_TYPE_CHOICES = [
+        ('image', 'Image'),
+        ('video', 'Video'),
+        ('document', 'Document')
+    ]
+    
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='media')
+    file = models.FileField(upload_to='event_media/')
+    media_type = models.CharField(max_length=20, choices=MEDIA_TYPE_CHOICES)
+    title = models.CharField(max_length=100, blank=True)
+    uploaded_by = models.ForeignKey('CustomUser', on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.get_media_type_display()} for {self.event.title}"
