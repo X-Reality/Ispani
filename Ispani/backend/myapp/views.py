@@ -35,7 +35,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 from .models import (
-    CustomUser, ExternalCalendarConnection, StudentProfile, TutorProfile, Group, Event,
+    CalendlyEvent, CustomUser, ExternalCalendarConnection, MeetingProvider, StudentProfile, TutorProfile, Group, Event,
     EventParticipant, EventTag, EventComment, EventMedia,
     ChatRoom, ChatMessage, UserStatus, GroupMembership,
     PrivateChat, PrivateMessage,TutorAvailability,Booking,Payment
@@ -55,6 +55,7 @@ from .serializers import (
     JoinGroupSessionSerializer
 
 )
+from Ispani.Ispani.backend.myapp import models
 
 logger = logging.getLogger(__name__)
 
