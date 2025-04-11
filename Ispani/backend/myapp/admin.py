@@ -43,7 +43,7 @@ class CustomUserAdmin(UserAdmin):
 # Student Profile Admin (updated)
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'year_of_study', 'course', 'communication_preference')
+    list_display = ('user', 'year_of_study', 'course')
     search_fields = ('user__username', 'user__email', 'course')
     list_filter = ('year_of_study', 'course')
     raw_id_fields = ('user',)
@@ -71,8 +71,8 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = ('id', 'student', 'tutor', 'status', 'start_time', 'duration_minutes', 'price')
     list_filter = ('status', 'tutor')
     search_fields = ('student__username', 'tutor__username', 'subject')
-    raw_id_fields = ('student', 'tutor', 'availability')
-    date_hierarchy = 'availability__start_time'
+    raw_id_fields = ('student', 'tutor')
+
     
     def start_time(self, obj):
         return obj.availability.start_time
@@ -190,7 +190,7 @@ class ExternalCalendarConnectionAdmin(admin.ModelAdmin):
 
 @admin.register(MeetingProvider)
 class MeetingProviderAdmin(admin.ModelAdmin):
-    list_display = ('provider', 'is_default', 'is_active')
+    list_display = ('provider', 'is_default')
 
 @admin.register(CalendlyEvent)
 class CalendlyEventAdmin(admin.ModelAdmin):

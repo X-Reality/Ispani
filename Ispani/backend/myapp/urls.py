@@ -13,10 +13,6 @@ urlpatterns = [
     path('login/', views.LoginView.as_view(), name='login'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
     
-    # User Profile URLs
-    path('user/', views.UserDetailView.as_view(), name='user-detail'),
-    path('user/status/', views.UpdateUserStatusView.as_view(), name='user-status'),
-    path('user/switch-role/', views.SwitchRoleView.as_view(), name='switch-role'),
     
     # Group URLs
     path('groups/create/', views.CreateGroupView.as_view(), name='create-group'),
