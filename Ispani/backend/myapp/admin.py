@@ -1,10 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
+    CalendlyEvent,
     CustomUser,
+    ExternalCalendarConnection,
+    MeetingProvider,
     StudentProfile,
     TutorProfile,
-    Group,
+    Group,Event,EventParticipant, 
+    EventTag, EventComment, EventMedia,
     ChatRoom,
     ChatMessage,
     PrivateChat,
@@ -39,7 +43,7 @@ class CustomUserAdmin(UserAdmin):
 # Student Profile Admin (updated)
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'year_of_study', 'course', 'communication_preference')
+    list_display = ('user', 'year_of_study', 'course')
     search_fields = ('user__username', 'user__email', 'course')
     list_filter = ('year_of_study', 'course')
     raw_id_fields = ('user',)
@@ -67,13 +71,48 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = ('id', 'student', 'tutor', 'status', 'start_time', 'duration_minutes', 'price')
     list_filter = ('status', 'tutor')
     search_fields = ('student__username', 'tutor__username', 'subject')
-    raw_id_fields = ('student', 'tutor', 'availability')
-    date_hierarchy = 'availability__start_time'
+    raw_id_fields = ('student', 'tutor')
+
     
     def start_time(self, obj):
         return obj.availability.start_time
     start_time.short_description = 'Start Time'
     start_time.admin_order_field = 'availability__start_time'
+
+# Event scheduling
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = ('title', 'creator', 'start_time', 'end_time', 'is_public')
+    search_fields = ('title', 'creator__username')
+    list_filter = ('is_public', 'start_time')
+    ordering = ('-start_time',)
+
+@admin.register(EventParticipant)
+class EventParticipantAdmin(admin.ModelAdmin):
+    list_display = ('event', 'user', 'role', 'status', 'joined_at')
+    search_fields = ('event__title', 'user__username')
+    list_filter = ('role', 'status')
+    ordering = ('-joined_at',)
+
+@admin.register(EventTag)
+class EventTagAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+@admin.register(EventComment)
+class EventCommentAdmin(admin.ModelAdmin):
+    list_display = ('event', 'user', 'content', 'created_at')
+    search_fields = ('event__title', 'user__username', 'content')
+    list_filter = ('created_at',)
+    ordering = ('-created_at',)
+
+@admin.register(EventMedia)
+class EventMediaAdmin(admin.ModelAdmin):
+    list_display = ('event', 'media_type', 'title', 'uploaded_by', 'uploaded_at')
+    search_fields = ('event__title', 'uploaded_by__username', 'title')
+    list_filter = ('media_type', 'uploaded_at')
+    ordering = ('-uploaded_at',)
+
 
 # Payment Admin (new)
 @admin.register(Payment)
@@ -144,3 +183,15 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     list_display = ('message', 'attachment_type', 'file')
     search_fields = ('message__content',)
     raw_id_fields = ('message',)
+
+@admin.register(ExternalCalendarConnection)
+class ExternalCalendarConnectionAdmin(admin.ModelAdmin):
+    list_display = ('provider', 'calendly_username', 'is_active')
+
+@admin.register(MeetingProvider)
+class MeetingProviderAdmin(admin.ModelAdmin):
+    list_display = ('provider', 'is_default')
+
+@admin.register(CalendlyEvent)
+class CalendlyEventAdmin(admin.ModelAdmin):
+    list_display = ('event_type_name', 'invitee_name', 'start_time', 'status')
