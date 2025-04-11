@@ -1,5 +1,7 @@
 import string
 import random
+import requests
+import json
 import uuid
 import os
 import logging
@@ -12,34 +14,45 @@ from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 from django.core.mail import send_mail
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from datetime import timedelta
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.utils.crypto import get_random_string
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 
+from datetime import datetime, timedelta
+
+from rest_framework import viewsets, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status, generics
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework_simplejwt.tokens import RefreshToken
 
+
 from .models import (
-    CustomUser, StudentProfile, TutorProfile, Group, 
+    CalendlyEvent, CustomUser, ExternalCalendarConnection, MeetingProvider, StudentProfile, TutorProfile, Group, Event,
+    EventParticipant, EventTag, EventComment, EventMedia,
     ChatRoom, ChatMessage, UserStatus, GroupMembership,
     PrivateChat, PrivateMessage,TutorAvailability,Booking,Payment
 )
 from .serializers import (
     UserSerializer, UserRegistrationSerializer,
     ChatMessageSerializer, ChatRoomSerializer,
-    JoinGroupSerializer, UserStatusSerializer,
+    JoinGroupSerializer, UserStatusSerializer,EventSerializer,
+    EventDetailSerializer,EventParticipantSerializer,
+    EventCommentSerializer, EventMediaSerializer, EventTagSerializer,
     GroupSerializer, GroupMembershipSerializer,
     PrivateChatSerializer, PrivateMessageSerializer,
     TutorProfileSerializer, StudentProfileSerializer,
-    TutorAvailabilitySerializer,CreateBookingSerializer,
-    BookingSerializer,PaymentSerializer
+    TutorAvailabilitySerializer, ExternalCalendarConnectionSerializer, MeetingProviderSerializer,
+    CalendlyEventSerializer, BookingSerializer, GroupSessionParticipantSerializer,
+    PaymentSerializer, CalendlyConnectionSerializer, CalendlyOAuthCallbackSerializer,
+    JoinGroupSessionSerializer
 
 )
 
@@ -556,177 +569,770 @@ class TutorAvailabilityView(APIView):
         
         return Response(created_slots, status=201)
 
-class BookingView(APIView):
-    permission_classes = [IsAuthenticated]
+class ExternalCalendarConnectionViewSet(viewsets.ModelViewSet):
+    serializer_class = ExternalCalendarConnectionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return ExternalCalendarConnection.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def connect_calendly(self, request):
+        serializer = CalendlyConnectionSerializer({})
+        return Response(serializer.data)
 
+    @action(detail=True, methods=['get'])
+    def fetch_availability(self, request, pk=None):
+        connection = self.get_object()
+
+        if connection.provider != 'calendly':
+            return Response({'error': 'This endpoint only works with Calendly connections'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+    
+        # Get Calendly user URI
+        user_uri = connection.provider_user_id
+        
+        # Get current date in ISO format
+        today = datetime.now().date().isoformat()
+        two_months_later = (datetime.now() + timedelta(days=60)).date().isoformat()
+        
+        # Call Calendly API to get available time slots
+        headers = {
+            'Authorization': f'Bearer {connection.access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Get user's event types
+        event_types_url = f"https://api.calendly.com/event_types?user={user_uri}"
+        event_types_response = requests.get(event_types_url, headers=headers)
+        
+        if event_types_response.status_code != 200:
+            return Response({'error': 'Failed to fetch Calendly event types'}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+    
+        event_types = event_types_response.json().get('collection', [])
+        
+        # Return data that can be used to display availability or redirect to Calendly
+        return Response({
+            'event_types': event_types,
+            'calendly_user': connection.calendly_username,
+            'booking_url': f"https://calendly.com/{connection.calendly_username}"
+        })
+
+class CalendlyOAuthCallbackView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
     def get(self, request):
-        bookings = Booking.objects.filter(
-            models.Q(student=request.user) | models.Q(tutor=request.user)
-        ).order_by('-created_at')
-        
-        serializer = BookingSerializer(bookings, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        serializer = CreateBookingSerializer(data=request.data, context={'request': request})
-        
+        serializer = CalendlyOAuthCallbackSerializer(data=request.query_params)
         if serializer.is_valid():
-            booking = serializer.save()
+            code = serializer.validated_data['code']
             
-            # Mark availability as booked
-            booking.availability.is_booked = True
-            booking.availability.save()
+            # Exchange code for token
+            token_url = 'https://auth.calendly.com/oauth/token'
+            payload = {
+                'client_id': settings.CALENDLY_CLIENT_ID,
+                'client_secret': settings.CALENDLY_CLIENT_SECRET,
+                'code': code,
+                'redirect_uri': settings.CALENDLY_REDIRECT_URI,
+                'grant_type': 'authorization_code'
+            }
             
-            # Create payment intent
-            try:
-                payment_intent = stripe.PaymentIntent.create(
-                    amount=int(booking.price * 100),  # in cents
-                    currency='usd',
-                    metadata={
-                        'booking_id': booking.id,
-                        'student_id': booking.student.id,
-                        'tutor_id': booking.tutor.id
-                    },
-                    description=f"Tutoring session for {booking.subject}"
-                )
+            response = requests.post(token_url, data=payload)
+            if response.status_code == 200:
+                token_data = response.json()
                 
-                # Create payment record
-                Payment.objects.create(
-                    booking=booking,
-                    amount=booking.price,
-                    payment_intent_id=payment_intent.id
-                )
+                # Get user info
+                user_url = 'https://api.calendly.com/users/me'
+                headers = {
+                    'Authorization': f"Bearer {token_data['access_token']}"
+                }
                 
-                # Send notifications
-                self.send_notification(booking)
-                
-                return Response({
-                    'booking': BookingSerializer(booking).data,
-                    'client_secret': payment_intent.client_secret
-                }, status=201)
-                
-            except Exception as e:
-                booking.delete()
-                return Response({"error": str(e)}, status=400)
-        
-        return Response(serializer.errors, status=400)
-
-    def send_notification(self, booking):
-        # Implement your notification logic here
-        # Could be email, websocket, or push notification
-        pass
-
-class BookingDetailView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self, pk):
-        try:
-            return Booking.objects.get(pk=pk)
-        except Booking.DoesNotExist:
-            raise Http404
-
-    def get(self, request, pk):
-        booking = self.get_object(pk)
-        
-        if booking.student != request.user and booking.tutor != request.user:
-            return Response({"error": "You don't have permission to view this booking"}, status=403)
-        
-        serializer = BookingSerializer(booking)
-        return Response(serializer.data)
-
-    def patch(self, request, pk):
-        booking = self.get_object(pk)
-        
-        if booking.tutor != request.user:
-            return Response({"error": "Only the tutor can update bookings"}, status=403)
-        
-        serializer = BookingSerializer(booking, data=request.data, partial=True)
-        
-        if serializer.is_valid():
-            updated_booking = serializer.save()
+                user_response = requests.get(user_url, headers=headers)
+                if user_response.status_code == 200:
+                    user_data = user_response.json()
+                    
+                    # Create or update connection
+                    connection, created = ExternalCalendarConnection.objects.update_or_create(
+                        user=request.user,
+                        provider='calendly',
+                        defaults={
+                            'provider_user_id': user_data['resource']['uri'],
+                            'access_token': token_data['access_token'],
+                            'refresh_token': token_data.get('refresh_token'),
+                            'token_expires_at': datetime.now() + timedelta(seconds=token_data['expires_in']),
+                            'calendly_username': user_data['resource']['name'],
+                            'calendly_uri': user_data['resource']['uri'],
+                            'is_active': True
+                        }
+                    )
+                    
+                    return Response({
+                        'message': 'Calendly account connected successfully',
+                        'username': user_data['resource']['name']
+                    })
             
-            if 'status' in request.data and request.data['status'] == 'confirmed':
-                # Send confirmation notification
-                self.send_confirmation(updated_booking)
-            
-            return Response(serializer.data)
+            return Response({'error': 'Failed to connect Calendly account'}, status=status.HTTP_400_BAD_REQUEST)
         
-        return Response(serializer.errors, status=400)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
-        booking = self.get_object(pk)
+class MeetingProviderViewSet(viewsets.ModelViewSet):
+    serializer_class = MeetingProviderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return MeetingProvider.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        # If this is set as default, unset other defaults
+        if serializer.validated_data.get('is_default', False):
+            MeetingProvider.objects.filter(user=self.request.user, is_default=True).update(is_default=False)
         
-        if booking.student != request.user:
-            return Response({"error": "Only the student can cancel bookings"}, status=403)
-        
-        if booking.status == 'cancelled':
-            return Response({"error": "Booking is already cancelled"}, status=400)
-        
-        booking.status = 'cancelled'
-        booking.save()
-        
-        # Release the time slot
-        booking.availability.is_booked = False
-        booking.availability.save()
-        
-        # Refund payment if already paid
-        if hasattr(booking, 'payment') and booking.payment.status == 'succeeded':
-            self.process_refund(booking.payment)
-        
-        return Response({"message": "Booking cancelled successfully"})
+        serializer.save(user=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def set_default(self, request, pk=None):
+        provider = self.get_object()
+        MeetingProvider.objects.filter(user=request.user, is_default=True).update(is_default=False)
+        provider.is_default = True
+        provider.save()
+        return Response({'status': 'Default meeting provider set'})
 
-    def process_refund(self, payment):
-        try:
-            refund = stripe.Refund.create(
-                payment_intent=payment.payment_intent_id,
-                reason='requested_by_customer'
-            )
-            payment.status = 'refunded'
-            payment.save()
-        except Exception as e:
-            # Log error but don't fail the cancellation
-            print(f"Refund failed: {str(e)}")
-
-class WebhookView(APIView):
-    permission_classes = [AllowAny]
-
+class CalendlyWebhookView(APIView):
+    permission_classes = []  # No authentication needed for webhooks
+    
     def post(self, request):
-        payload = request.body
-        sig_header = request.META['HTTP_STRIPE_SIGNATURE']
-        event = None
-
+        payload = request.data
+        event_type = payload.get('event')
+        
+        if event_type == 'invitee.created':
+            # Someone booked a time through Calendly
+            return self.handle_invitee_created(payload)
+        elif event_type == 'invitee.canceled':
+            # Someone canceled their booking
+            return self.handle_invitee_canceled(payload)
+        
+        return Response({'status': 'ignore'})
+    
+    def handle_invitee_created(self, payload):
+        # Extract the needed data from Calendly webhook
+        event_data = payload.get('payload', {}).get('event', {})
+        invitee_data = payload.get('payload', {}).get('invitee', {})
+        
+        # Find associated tutor by URI
+        calendly_uri = event_data.get('uri', '').split('/')[4]  # Extract user ID from URI
+        
         try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            calendar_connection = ExternalCalendarConnection.objects.get(
+                provider='calendly',
+                provider_user_id__contains=calendly_uri
             )
-        except ValueError as e:
-            return Response({"error": str(e)}, status=400)
-        except stripe.error.SignatureVerificationError as e:
-            return Response({"error": str(e)}, status=400)
-
-        if event['type'] == 'payment_intent.succeeded':
-            payment_intent = event['data']['object']
-            self.handle_payment_succeeded(payment_intent)
-
-        return Response({"success": True})
-
-    def handle_payment_succeeded(self, payment_intent):
+            
+            tutor = calendar_connection.user
+            
+            # Create calendly event
+            calendly_event = CalendlyEvent.objects.create(
+                tutor=tutor,
+                calendly_event_id=event_data.get('uuid'),
+                calendly_event_uri=event_data.get('uri'),
+                event_type_name=event_data.get('name', 'Session'),
+                start_time=event_data.get('start_time'),
+                end_time=event_data.get('end_time'),
+                invitee_email=invitee_data.get('email'),
+                invitee_name=invitee_data.get('name'),
+                location=event_data.get('location', {}).get('join_url'),
+                cancellation_url=invitee_data.get('cancel_url'),
+                reschedule_url=invitee_data.get('reschedule_url'),
+                is_group_event=False,  # Assuming default is one-on-one
+            )
+            
+            # Try to find or create the student
+            student, created = CustomUser.objects.get_or_create(
+                email=invitee_data.get('email'),
+                defaults={
+                    'username': invitee_data.get('email').split('@')[0],
+                    'role': 'student'
+                }
+            )
+            
+            # Calculate duration in minutes
+            start = datetime.fromisoformat(event_data.get('start_time').replace('Z', '+00:00'))
+            end = datetime.fromisoformat(event_data.get('end_time').replace('Z', '+00:00'))
+            duration = int((end - start).total_seconds() / 60)
+            
+            # Calculate price based on tutor's hourly rate
+            hourly_rate = tutor.tutor_profile.hourly_rate
+            price = float(hourly_rate) * (duration / 60)
+            
+            # Create booking
+            booking = Booking.objects.create(
+                student=student,
+                tutor=tutor,
+                subject=event_data.get('name', 'Tutoring Session'),
+                notes=invitee_data.get('questions_and_answers', [{}])[0].get('answer', ''),
+                status='pending',
+                booking_source='calendly',
+                meeting_link=event_data.get('location', {}).get('join_url'),
+                price=price,
+                duration_minutes=duration,
+                calendly_event=calendly_event
+            )
+            
+            # Create payment record
+            Payment.objects.create(
+                booking=booking,
+                student=student,
+                amount=price,
+                payment_intent_id=f"calendly_{uuid.uuid4()}",
+                status='pending'
+            )
+            
+            # TODO: Send email to student about payment
+            
+            return Response({'status': 'success'})
+        
+        except ExternalCalendarConnection.DoesNotExist:
+            return Response({'status': 'error', 'message': 'No matching tutor found'}, 
+                            status=status.HTTP_404_NOT_FOUND)
+    
+    def handle_invitee_canceled(self, payload):
+        event_uuid = payload.get('payload', {}).get('event', {}).get('uuid')
+        
         try:
-            payment = Payment.objects.get(payment_intent_id=payment_intent['id'])
-            payment.status = 'succeeded'
-            payment.paid_at = timezone.now()
+            calendly_event = CalendlyEvent.objects.get(calendly_event_id=event_uuid)
+            calendly_event.status = 'cancelled'
+            calendly_event.save()
+            
+            # Update related booking
+            bookings = Booking.objects.filter(calendly_event=calendly_event)
+            for booking in bookings:
+                booking.status = 'cancelled'
+                booking.save()
+            
+            return Response({'status': 'success'})
+        
+        except CalendlyEvent.DoesNotExist:
+            return Response({'status': 'error', 'message': 'Event not found'}, 
+                            status=status.HTTP_404_NOT_FOUND)
+
+class BookingViewSet(viewsets.ModelViewSet):
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'tutor':
+            return Booking.objects.filter(tutor=user)
+        else:
+            return Booking.objects.filter(student=user)
+    
+    @action(detail=True, methods=['post'])
+    def confirm_payment(self, request, pk=None):
+        booking = self.get_object()
+        
+        # Check if the user is the student in this booking
+        if request.user != booking.student:
+            return Response({'error': 'You can only confirm payments for your own bookings'}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # In a real implementation, you would process payment here
+        # For this example, we'll just mark the payment as completed
+        payment = Payment.objects.filter(booking=booking, student=request.user).first()
+        
+        if payment:
+            payment.status = 'completed'
+            payment.paid_at = datetime.now()
             payment.save()
             
-            booking = payment.booking
+            # If this is a group session, update participant's payment status
+            if booking.is_group_session:
+                participant = GroupSessionParticipant.objects.filter(
+                    booking=booking, student=request.user
+                ).first()
+                
+                if participant:
+                    participant.payment_status = 'completed'
+                    participant.save()
+            
+            # Set booking to confirmed
             booking.status = 'confirmed'
             booking.save()
             
-            # Send confirmation emails
-            self.send_booking_confirmation(booking)
+            return Response({
+                'status': 'success',
+                'meeting_link': booking.meeting_link
+            })
+        
+        return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['get'])
+    def get_meeting_link(self, request, pk=None):
+        booking = self.get_object()
+        
+        # Check if the user is part of this booking
+        if request.user != booking.student and request.user != booking.tutor:
+            return Response({'error': 'You are not authorized to access this booking'}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        # If user is a tutor, provide the link immediately
+        if request.user.role == 'tutor':
+            return Response({'meeting_link': booking.meeting_link})
+        
+        # If user is a student, check payment status
+        if booking.is_group_session:
+            participant = GroupSessionParticipant.objects.filter(
+                booking=booking, student=request.user
+            ).first()
             
-        except Payment.DoesNotExist:
-            pass
+            if participant and participant.payment_status == 'completed':
+                return Response({'meeting_link': booking.meeting_link})
+        else:
+            payment = Payment.objects.filter(
+                booking=booking, student=request.user, status='completed'
+            ).exists()
+            
+            if payment:
+                return Response({'meeting_link': booking.meeting_link})
+        
+        return Response({'error': 'Payment required before accessing meeting link'}, 
+                       status=status.HTTP_402_PAYMENT_REQUIRED)
 
-    def send_booking_confirmation(self, booking):
-        # Implement email sending logic
-        pass
+def get_calendly_event_types(request):
+    headers = {
+        "Authorization": f"Bearer {settings.CALENDLY_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    # First get your user URI
+    user_response = requests.get("https://api.calendly.com/users/me", headers=headers)
+    user_uri = user_response.json().get("resource", {}).get("uri")
+
+    # Now fetch event types
+    event_types_response = requests.get(
+        f"https://api.calendly.com/event_types?user={user_uri}",
+        headers=headers
+    )
+    return JsonResponse(event_types_response.json())
+
+class GroupSessionViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def list(self, request):
+        # List available group sessions
+        group_sessions = Booking.objects.filter(
+            is_group_session=True,
+            status='confirmed',
+            start_time__gt=datetime.now(),
+            current_participants__lt=models.F('max_participants')
+        )
+        
+        serializer = BookingSerializer(group_sessions, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def join(self, request):
+        serializer = JoinGroupSessionSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            participant = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'You have joined this group session',
+                'payment_required': True,
+                'booking_id': serializer.validated_data['booking_id']
+            })
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EventListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        List all events the user can access (public events and private events they're invited to)
+        Supports filtering by various parameters
+        """
+        # Get query parameters
+        event_type = request.query_params.get('event_type')
+        tag = request.query_params.get('tag')
+        search = request.query_params.get('search')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        my_events = request.query_params.get('my_events') == 'true'
+        participating = request.query_params.get('participating') == 'true'
+        
+        # Base queryset
+        if my_events:
+            # Events created by current user
+            queryset = Event.objects.filter(creator=request.user)
+        elif participating:
+            # Events the user is participating in
+            user_events = EventParticipant.objects.filter(
+                user=request.user,
+                status='going'
+            ).values_list('event_id', flat=True)
+            queryset = Event.objects.filter(id__in=user_events)
+        else:
+            # All events user can access
+            queryset = Event.objects.filter(
+                Q(is_public=True) | 
+                Q(participants__user=request.user)
+            ).distinct()
+        
+        # Apply filters
+        if event_type:
+            queryset = queryset.filter(event_type=event_type)
+        
+        if tag:
+            queryset = queryset.filter(tags__name=tag)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(description__icontains=search) |
+                Q(location__icontains=search)
+            )
+        
+        if date_from:
+            queryset = queryset.filter(start_time__gte=date_from)
+        
+        if date_to:
+            queryset = queryset.filter(start_time__lte=date_to)
+        
+        # Order by start time (upcoming first)
+        queryset = queryset.filter(end_time__gte=timezone.now()).order_by('start_time')
+        
+        serializer = EventSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    def post(self, request):
+        """Create a new event"""
+        serializer = EventSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class EventDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self, pk):
+        """Get event or return 404"""
+        event = get_object_or_404(Event, pk=pk)
+        
+        # Check if user can access this event
+        if not event.is_public:
+            if not EventParticipant.objects.filter(event=event, user=self.request.user).exists():
+                # If private event and user is not a participant, deny access
+                raise Http404("Event not found")
+        
+        return event
+    
+    def get(self, request, pk):
+        """Get event details"""
+        event = self.get_object(pk)
+        serializer = EventDetailSerializer(event, context={'request': request})
+        return Response(serializer.data)
+    
+    def put(self, request, pk):
+        """Update event"""
+        event = self.get_object(pk)
+        
+        # Only the creator can update the event
+        if event.creator != request.user:
+            return Response(
+                {"detail": "You don't have permission to edit this event"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = EventSerializer(event, data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        """Delete event"""
+        event = self.get_object(pk)
+        
+        # Only the creator can delete the event
+        if event.creator != request.user:
+            return Response(
+                {"detail": "You don't have permission to delete this event"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        event.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class EventParticipationView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, pk):
+        """Join an event or update participation status"""
+        event = get_object_or_404(Event, pk=pk)
+        
+        # Check if event is full
+        if (event.participants.filter(status='going').count() >= event.max_participants and 
+            not EventParticipant.objects.filter(event=event, user=request.user).exists()):
+            return Response(
+                {"detail": "This event has reached its maximum capacity"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get participation status
+        status_value = request.data.get('status', 'going')
+        if status_value not in [s[0] for s in EventParticipant.STATUS_CHOICES]:
+            return Response(
+                {"detail": f"Invalid status. Must be one of: {', '.join([s[0] for s in EventParticipant.STATUS_CHOICES])}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create or update participant
+        participant, created = EventParticipant.objects.update_or_create(
+            event=event,
+            user=request.user,
+            defaults={'status': status_value}
+        )
+        
+        # If user is the creator, make sure they're an organizer
+        if event.creator == request.user:
+            participant.role = 'organizer'
+            participant.save()
+        
+        serializer = EventParticipantSerializer(participant)
+        return Response(serializer.data)
+    
+    def delete(self, request, pk):
+        """Leave an event"""
+        event = get_object_or_404(Event, pk=pk)
+        
+        # Creator can't leave their own event
+        if event.creator == request.user:
+            return Response(
+                {"detail": "As the creator, you cannot leave your own event. You may delete it instead."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Remove participation
+        EventParticipant.objects.filter(event=event, user=request.user).delete()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class EventInviteView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, pk):
+        """Invite users to an event"""
+        event = get_object_or_404(Event, pk=pk)
+        
+        # Check if user has permission to invite (must be a participant)
+        try:
+            participant = EventParticipant.objects.get(event=event, user=request.user)
+        except EventParticipant.DoesNotExist:
+            return Response(
+                {"detail": "You must be a participant to invite others"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get user IDs to invite
+        user_ids = request.data.get('user_ids', [])
+        if not user_ids:
+            return Response(
+                {"detail": "No users specified to invite"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Invite users
+        invited_count = 0
+        for user_id in user_ids:
+            try:
+                user = CustomUser.objects.get(id=user_id)
+                if not EventParticipant.objects.filter(event=event, user=user).exists():
+                    EventParticipant.objects.create(
+                        event=event,
+                        user=user,
+                        status='invited'
+                    )
+                    invited_count += 1
+                    
+                    # Send notification/email here
+                    
+            except CustomUser.DoesNotExist:
+                pass
+        
+        return Response({"invited_count": invited_count})
+
+class EventCommentView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, pk):
+        """Get comments for an event"""
+        event = get_object_or_404(Event, pk=pk)
+        comments = EventComment.objects.filter(event=event).order_by('created_at')
+        serializer = EventCommentSerializer(comments, many=True)
+        return Response(serializer.data)
+    
+    def post(self, request, pk):
+        """Add a comment to an event"""
+        event = get_object_or_404(Event, pk=pk)
+        
+        # Check if user is a participant
+        if not EventParticipant.objects.filter(event=event, user=request.user).exists():
+            return Response(
+                {"detail": "You must be a participant to comment"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = EventCommentSerializer(data={
+            'content': request.data.get('content')
+        })
+        
+        if serializer.is_valid():
+            comment = serializer.save(event=event, user=request.user)
+            return Response(EventCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class EventMediaView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, pk):
+        """Get media for an event"""
+        event = get_object_or_404(Event, pk=pk)
+        media = EventMedia.objects.filter(event=event)
+        serializer = EventMediaSerializer(media, many=True)
+        return Response(serializer.data)
+    
+    def post(self, request, pk):
+        """Add media to an event"""
+        event = get_object_or_404(Event, pk=pk)
+        
+        # Check if user is a participant
+        if not EventParticipant.objects.filter(event=event, user=request.user).exists():
+            return Response(
+                {"detail": "You must be a participant to add media"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = EventMediaSerializer(data={
+            'file': request.data.get('file'),
+            'media_type': request.data.get('media_type'),
+            'title': request.data.get('title', '')
+        })
+        
+        if serializer.is_valid():
+            media = serializer.save(event=event, uploaded_by=request.user)
+            return Response(EventMediaSerializer(media).data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class EventTagsView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        """Get popular event tags"""
+        tags = EventTag.objects.annotate(
+            usage_count=Count('events')
+        ).order_by('-usage_count')[:20]  # Top 20 tags
+        
+        serializer = EventTagSerializer(tags, many=True)
+        return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def join_event_by_invite(request, invite_link):
+    """Join an event using an invite link"""
+    try:
+        event = Event.objects.get(invite_link=invite_link)
+    except Event.DoesNotExist:
+        return Response({"detail": "Invalid invite link"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if event is full
+    if event.participants.filter(status='going').count() >= event.max_participants:
+        return Response(
+            {"detail": "This event has reached its maximum capacity"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Add user as participant
+    participant, created = EventParticipant.objects.get_or_create(
+        event=event,
+        user=request.user,
+        defaults={'status': 'going'}
+    )
+    
+    if not created:
+        participant.status = 'going'
+        participant.save()
+    
+    serializer = EventDetailSerializer(event, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def upcoming_events(request):
+    """Get upcoming events the user is participating in"""
+    now = timezone.now()
+    
+    # Get events where the user is participating with status "going"
+    user_events = EventParticipant.objects.filter(
+        user=request.user,
+        status='going',
+        event__start_time__gt=now
+    ).values_list('event_id', flat=True)
+    
+    events = Event.objects.filter(
+        id__in=user_events
+    ).order_by('start_time')[:5]  # Get next 5 events
+    
+    serializer = EventSerializer(events, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recommended_events(request):
+    """Get recommended events based on user interests and past participation"""
+    now = timezone.now()
+    user = request.user
+    
+    # Get user's past events
+    past_events = EventParticipant.objects.filter(
+        user=user,
+        status='going',
+        event__end_time__lt=now
+    ).values_list('event_id', flat=True)
+    
+    # Get event types user has participated in
+    event_types = Event.objects.filter(
+        id__in=past_events
+    ).values_list('event_type', flat=True).distinct()
+    
+    # Get tags from events user has participated in
+    tags = Event.objects.filter(
+        id__in=past_events
+    ).values_list('tags__name', flat=True).distinct()
+    
+    # Find upcoming events that match user interests
+    if hasattr(user, 'student_profile'):
+        hobbies = user.student_profile.hobbies
+    else:
+        hobbies = ""
+    
+    recommended = Event.objects.filter(
+        Q(is_public=True) &
+        Q(end_time__gt=now) &
+        (
+            Q(event_type__in=event_types) |
+            Q(tags__name__in=tags) |
+            Q(description__icontains=hobbies) |
+            Q(title__icontains=hobbies)
+        )
+    ).exclude(
+        participants__user=user  # Exclude events user is already participating in
+    ).distinct().order_by('start_time')[:10]
+    
+    serializer = EventSerializer(recommended, many=True, context={'request': request})
+    return Response(serializer.data)
