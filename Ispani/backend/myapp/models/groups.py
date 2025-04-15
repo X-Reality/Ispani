@@ -1,7 +1,6 @@
 from django.db import models
 from django.utils.crypto import get_random_string
 from .authentication import CustomUser
-from django.utils import timezone
 
 class Group(models.Model):
     GROUP_TYPES = (
@@ -19,7 +18,7 @@ class Group(models.Model):
     admin = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='administered_groups')
     created_at = models.DateTimeField(auto_now_add=True)
     invite_link = models.CharField(max_length=20, unique=True)
-    
+     
     def save(self, *args, **kwargs):
         if not self.invite_link:
             self.invite_link = get_random_string(20)

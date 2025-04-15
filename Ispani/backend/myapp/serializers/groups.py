@@ -26,3 +26,18 @@ class GroupSerializer(serializers.ModelSerializer):
 
 class JoinGroupSerializer(serializers.Serializer):
     group_id = serializers.IntegerField()
+    
+    def validate_group_id(self, value):
+        try:
+            self.group = Group.objects.get(id=value)
+        except Group.DoesNotExist:
+            raise serializers.ValidationError("Group does not exist")
+        return value
+    
+    def save(self):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            user = request.user
+            self.group.members.add(user)
+            return self.group
+        raise serializers.ValidationError("User must be authenticated to join a group")

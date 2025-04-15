@@ -1,16 +1,13 @@
 from rest_framework import serializers
-from django.utils import timezone
 from ..models import (
     StudentProfile, TutorProfile,CustomUser, UserStatus
 )
-from django.utils.crypto import get_random_string
 from django.contrib.auth.hashers import make_password
-
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
-        fields = ['year_of_study', 'course', 'hobbies', 'piece_jobs', 'communication_preference']
+        fields = ['year_of_study', 'course', 'hobbies', 'piece_jobs', 'institution']
 
 class TutorProfileSerializer(serializers.ModelSerializer):
     class Meta:

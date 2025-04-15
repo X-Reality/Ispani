@@ -5,11 +5,8 @@ from decouple import config
 from django.conf.urls.static import static
 import os
  
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -23,13 +20,10 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
 CALENDLY_API_KEY = config('CALENDLY_API_KEY')
 
-
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -56,7 +50,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.instagram',
    
-
 ]
 
 REST_FRAMEWORK = {
@@ -67,8 +60,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
-
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -104,17 +95,12 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-
-
-
-
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Default: database-backed sessions
 SESSION_COOKIE_AGE = 60 * 60 * 24  # Cookie lifespan: 1 day (in seconds)
 SESSION_SAVE_EVERY_REQUEST = True  # Renew session expiration with every request
 SESSION_COOKIE_SECURE = True  # Use only on HTTPS
 SESSION_COOKIE_HTTPONLY = True # Use True in production if using HTTPS
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Session persists after closing the browser
-
 
 CSRF_COOKIE_SECURE = False  # Set to True only if using HTTPS
 CSRF_USE_SESSIONS = True  # Store CSRF token in session instead of cookie
@@ -144,7 +130,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend.wsgi.application'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -154,7 +139,6 @@ DATABASES = {
         'NAME': BASE_DIR /'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -204,26 +188,19 @@ LOGIN_REDIRECT_URL = '/'  # Where to redirect after successful login
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 ASGI_APPLICATION = "backend.asgi.application"
-
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -232,7 +209,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
-
 # Stripe settings
 STRIPE_SECRET_KEY = 'your_stripe_secret_key'
 STRIPE_PUBLISHABLE_KEY = 'your_stripe_publishable_key'
