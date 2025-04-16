@@ -1,23 +1,23 @@
-import logo from './logo.svg';
-import './App.css';
+import "./App.css";
+import "./screens/frame/frame";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { Frame } from "./screens/frame/frame";
+import Signup from "./screens/frame/signup";
+import Roles from "./screens/frame/roles";
+import MultiStepForm from "./screens/frame/signupstudentsteps";
+import MultiStepFormService from "./screens/frame/signupservicesproviderstep";
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Signup />} />
+          <Route path="/roles" element={<Roles />} />
+          <Route path="/signupstudent" element={<MultiStepForm />} />
+          <Route path="/signservice" element={<MultiStepFormService />} />
+        </Routes>
+      </Router>
     </div>
   );
 }
