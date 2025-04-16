@@ -1,6 +1,5 @@
 from rest_framework import serializers
-
-from ..models import Group, GroupMembership, CustomUser
+from ..models import Group, GroupMembership
 from .authentication import UserSerializer 
 
 
