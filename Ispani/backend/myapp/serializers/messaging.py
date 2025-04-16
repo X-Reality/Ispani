@@ -1,8 +1,6 @@
 from rest_framework import serializers
 from ..models import ChatMessage, MessageAttachment,ChatRoom,PrivateChat,PrivateMessage
 from ..serializers import UserSerializer
-from django.utils.crypto import get_random_string
-from django.contrib.auth.hashers import make_password
 
 class ChatRoomSerializer(serializers.ModelSerializer):
     members = UserSerializer(many=True, read_only=True)

@@ -63,7 +63,7 @@ class SignUpView(APIView):
             return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
         
         # For social authentication
-        elif auth_type in ["google", "facebook", "apple"]:
+        elif auth_type in ["google", "facebook", "instagram"]:
             # Handle social auth token validation
             social_token = request.data.get("social_token")
             
