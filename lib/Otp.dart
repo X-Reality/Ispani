@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ispani/Register.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OtpScreen extends StatefulWidget {
   final String email;
@@ -120,16 +121,11 @@ class _OtpScreenState extends State<OtpScreen> {
         // Extract the temp_token from the response
         _tempToken = responseData['temp_token']; // Store the tempToken
         // Navigate to registration form with the temp token
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MultiScreenForm(
-              email: widget.email,
-              password: widget.password,
-              tempToken: _tempToken, // Pass the tempToken
-            ),
-          ),
+        final reactURL = Uri.parse(
+          'https://your-react-site.com/complete-registration?token=$_tempToken',
         );
+        await launchUrl(reactURL, mode: LaunchMode.externalApplication);
+        ;
       } else {
         // Handle error response
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

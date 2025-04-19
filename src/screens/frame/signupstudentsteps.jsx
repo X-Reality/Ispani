@@ -4,6 +4,15 @@ const MultiStepForm = () => {
   const [step, setStep] = useState(1);
   const nextStep = () => setStep((prev) => prev + 1);
   const prevStep = () => setStep((prev) => prev - 1);
+  const [tempToken, setTempToken] = useState("");
+  const [username, setUsername] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [qualification, setQualification] = useState("");
+  const [course, setCourse] = useState("");
+  const [yearOfStudy, setYearOfStudy] = useState("");
+  const [hobbies, setHobbies] = useState([]);
+  const [pieceJobs, setPieceJobs] = useState("");
+
   const options = [
     "UI/UX",
     "Web Design",
@@ -13,15 +22,54 @@ const MultiStepForm = () => {
     "Graphics",
   ];
 
-  const [selected, setSelected] = useState([]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      setTempToken(token);
+    }
+  }, []);
 
   const toggleSelect = (item) => {
-    if (selected.includes(item)) {
-      setSelected(selected.filter((tag) => tag !== item));
+    if (hobbies.includes(item)) {
+      setHobbies(hobbies.filter((tag) => tag !== item));
     } else {
-      setSelected([...selected, item]);
+      setHobbies([...hobbies, item]);
     }
   };
+
+  const handleSubmit = () => {
+    fetch("http://127.0.0.1:8000/complete-registration/", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        "Authorization": "Bearer $token",
+      },
+      body: JSON.stringify({
+        temp_token: tempToken,
+        username: username,
+        institution: institution,
+        qualification: qualification,
+        course: course,
+        year_of_study: yearOfStudy,
+        hobbies: hobbies.join(", "),
+        piece_jobs: pieceJobs,
+        communication_preference: "email",
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Registration completed:", data);
+        if (data.token) {
+          alert("Registration successful!");
+          // Optionally redirect or store token
+        } else {
+          alert("Something went wrong.");
+        }
+      })
+      .catch((err) => console.error(err));
+  };
+
 
   return (
     <div className="d-flex vh-100 font-sans">
