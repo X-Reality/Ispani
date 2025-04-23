@@ -20,7 +20,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: SingleChildScrollView( // Makes the screen scrollable
+        child: SingleChildScrollView(
+          // Makes the screen scrollable
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

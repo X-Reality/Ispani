@@ -13,6 +13,7 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -25,6 +26,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
       try {
         final result = await _authService.signup(
+          _usernameController.text,
           _emailController.text,
           _passwordController.text,
         );
@@ -38,6 +40,7 @@ class _SignupScreenState extends State<SignupScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => OtpScreen(
+                  username: _usernameController.text,
                   email: _emailController.text,
                   password: _passwordController.text,
                 ),
@@ -136,19 +139,39 @@ class _SignupScreenState extends State<SignupScreen> {
                           textAlign: TextAlign.center),
                       const SizedBox(height: 20),
                       TextFormField(
+                        controller: _usernameController,
+                        decoration: InputDecoration(
+                          labelText: "Username",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return "Username is required";
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
                           labelText: "Email",
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           filled: true,
                           fillColor: Colors.white,
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty)
                             return "Email is required";
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value))
+                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                             return "Enter a valid email";
+                          }
                           return null;
                         },
                       ),
@@ -159,7 +182,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         decoration: InputDecoration(
                           labelText: "Password",
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           filled: true,
                           fillColor: Colors.white,
                         ),
@@ -178,7 +202,8 @@ class _SignupScreenState extends State<SignupScreen> {
                           backgroundColor:
                               const Color.fromARGB(255, 147, 182, 138),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           minimumSize: const Size(double.infinity, 50),
                         ),
                         child: _isLoading
@@ -187,9 +212,10 @@ class _SignupScreenState extends State<SignupScreen> {
                             : const Text(
                                 'Create Account',
                                 style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18),
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
                               ),
                       ),
                       const SizedBox(height: 20),
@@ -208,7 +234,8 @@ class _SignupScreenState extends State<SignupScreen> {
                             child: const Text(
                               'Log in',
                               style: TextStyle(
-                                  color: Color.fromARGB(255, 147, 182, 138)),
+                                color: Color.fromARGB(255, 147, 182, 138),
+                              ),
                             ),
                           ),
                         ],

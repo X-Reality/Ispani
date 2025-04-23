@@ -1,6 +1,5 @@
 import string
 import uuid
-import logging
 import stripe
 
 from django.contrib.auth import authenticate, login, logout
@@ -16,7 +15,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ..models import CustomUser
+from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider
 from ..serializers import UserSerializer, UserRegistrationSerializer
 
 # ------------------- User Registration and Authentication -------------------
@@ -28,8 +27,8 @@ class SignUpView(APIView):
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
-        confirm_password = request.data.get("confirm_password")
-        role = request.data.get("role", "student")
+        username = request.data.get("username")
+
         
         # Check if auth_type is provided for social auth
         auth_type = request.data.get("auth_type", "email")  # Default to email auth
@@ -37,11 +36,11 @@ class SignUpView(APIView):
         # For regular email signup
         if auth_type == "email":
             # Validate required fields
-            if not email or not password or not confirm_password:
-                return Response({"error": "Email, password, and password confirmation are required"}, status=status.HTTP_400_BAD_REQUEST)
+            if not email or not password or not username:
+                return Response({"error": "Email, password and usernameare required"}, status=status.HTTP_400_BAD_REQUEST)
             
             # Validate password confirmation
-            if password != confirm_password:
+           # if password != confirm_password:
                 return Response({"error": "Passwords do not match"}, status=status.HTTP_400_BAD_REQUEST)
             
             # Validate email uniqueness
@@ -50,7 +49,7 @@ class SignUpView(APIView):
             
             # Generate and send OTP
             otp = get_random_string(6, allowed_chars=string.digits)
-            cache.set(email, {'otp': otp, 'password': password, 'role': role}, timeout=300)
+            cache.set(email, {'otp': otp, 'password': password}, timeout=300)
             
             send_mail(
                 "Your OTP Code",
@@ -95,14 +94,13 @@ class SignUpView(APIView):
                     # For social auth, we don't need to store a password
                     cache.set(temp_token, {
                         'email': email,
-                        'role': role,
+
                         'auth_type': auth_type
                     }, timeout=600)
                     
                     return Response({
                         "message": "Please complete your registration",
-                        "temp_token": temp_token,
-                        "role": role
+                        "temp_token": temp_token
                     }, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response({"error": f"Social authentication failed: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -114,6 +112,7 @@ class VerifyOTPView(APIView):
 
     def post(self, request):
         email = request.data.get("email")
+        username= request.data.get("username")
         otp = request.data.get("otp")
 
         cached_data = cache.get(email)
@@ -123,8 +122,7 @@ class VerifyOTPView(APIView):
         temp_token = str(uuid.uuid4())
         cache.set(temp_token, {
             'email': email,
-            'password': cached_data['password'],
-            'role': cached_data['role']
+            'username': username,
         }, timeout=600)
 
         cache.delete(email)
@@ -132,79 +130,80 @@ class VerifyOTPView(APIView):
         return Response({
             "message": "OTP verified.",
             "temp_token": temp_token,
-            "role": cached_data['role']
         }, status=status.HTTP_200_OK)
 
 class CompleteRegistrationView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         temp_token = request.data.get("temp_token")
         temp_data = cache.get(temp_token)
+        data = request.data
+        role = data.get('role')
+        user = request.user
 
+        if not user or not user.pk:
+            user = CustomUser.objects.create_user(
+            email=temp_data['email'],
+            username=temp_data.get('username', temp_data['email'].split('@')[0]),
+            password=temp_data.get('password') or CustomUser.objects.make_random_password()
+    )
         if not temp_data:
             return Response({"error": "Invalid or expired session."}, status=status.HTTP_400_BAD_REQUEST)
         
         auth_type = temp_data.get('auth_type', 'email')
 
-        registration_data = {
-            'username': request.data.get("username"),
-            'email': temp_data['email'],
-            'role': temp_data['role']
-        }
-
-        # Only set password for email registration
-        if auth_type == 'email':
-            registration_data['password'] = temp_data['password']
-        else:
-            # For social auth, generate a secure random password
-            # The user won't need this password as they'll login via social auth
-            registration_data['password'] = get_random_string(20)
-
-        if temp_data['role'] == 'student':
-            registration_data['student_profile'] = {
-                'year_of_study': request.data.get("year_of_study"),
-                'course': request.data.get("course"),
-                'hobbies': request.data.get("hobbies"),
-                'piece_jobs': request.data.get("piece_jobs"),
-                'institution': request.data.get("institution")
-            }
-        elif temp_data['role'] == 'tutor':
-            registration_data['tutor_profile'] = {
-                'subject_expertise': request.data.get('subject_expertise'),
-                'hourly_rate': request.data.get('hourly_rate'),
-                'qualifications': request.data.get('qualifications'),
-                'availability': request.data.get('availability')
-            }
-
-        serializer = UserRegistrationSerializer(data=registration_data)
-        if serializer.is_valid():
-            user = serializer.save()
-            cache.delete(temp_token)
-
-            # For social auth, we don't need to authenticate with password
-            if auth_type == 'email':
-                authenticated_user = authenticate(username=user.username, password=temp_data['password'])
-            else:
-                # For social auth, we can just use the user object directly
-                authenticated_user = user
-
-            if authenticated_user:
-                login(request, authenticated_user)
-                refresh = RefreshToken.for_user(authenticated_user)
-
-                response_data = {
-                    "message": "Registration completed successfully",
-                    "user": UserSerializer(authenticated_user).data,
-                    "token": {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    }
-                }
-
-                return Response(response_data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not role:
+            return Response({
+                'message': 'Role is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update user role
+        user.role = role
+        user.save()
+        
+        try:
+            if role == 'student':
+                StudentProfile.objects.create(
+                    user=user,
+                    year_of_study=data.get('year_of_study'),
+                    course=data.get('course'),
+                    hobbies=data.get('hobbies'),
+                    qualification=data.get('qualification'),
+                    institution=data.get('institution')
+                )
+            elif role == 'tutor':
+                TutorProfile.objects.create(
+                    user=user,
+                    about=data.get('about'),
+                    phone_number=data.get('phone_number'),
+                    hourly_rate=data.get('hourly_rate'),
+                    qualifications=data.get('qualifications')
+                )
+            elif role == 'hs student':
+                HStudents.objects.create(
+                    user=user
+                )
+            elif role == 'service provider':
+                ServiceProvider.objects.create(
+                    user=user,
+                    company_name=data.get('company_name'),
+                    description=data.get('description'),
+                    typeofservice=data.get('typeofservice'),
+                    qualification=data.get('qualification'),
+                    interests=data.get('interests'),
+                    hobbies=data.get('hobbies')
+                )
+            # Add other role-specific profiles as needed
+            
+            return Response({
+                'message': 'Profile completed successfully'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'message': f'Error completing profile: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LoginView(APIView):
     permission_classes = [AllowAny]

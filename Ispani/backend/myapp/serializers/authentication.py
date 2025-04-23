@@ -1,56 +1,57 @@
 from rest_framework import serializers
-from ..models import (
-    StudentProfile, TutorProfile,CustomUser, UserStatus
-)
-from django.contrib.auth.hashers import make_password
+from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'username', 'email', 'password', 'role')
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        user = CustomUser.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            role=validated_data.get('role', 'student')
+        )
+        return user
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
-        fields = ['year_of_study', 'course', 'hobbies', 'piece_jobs', 'institution']
+        exclude = ('user',)
 
 class TutorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TutorProfile
-        fields = ['subject_expertise', 'hourly_rate', 'qualifications', 'availability', 'verification_status']
+        exclude = ('user',)
 
-class UserStatusSerializer(serializers.ModelSerializer):
+class HStudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = UserStatus
-        fields = ['is_online', 'last_active', 'status_message']
+        model = HStudents
+        exclude = ('user',)
 
-class UserSerializer(serializers.ModelSerializer):
-    student_profile = StudentProfileSerializer(required=False)
-    tutor_profile = TutorProfileSerializer(required=False)
-    status = UserStatusSerializer(read_only=True)
-
+class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
-        fields = ['id', 'username', 'email', 'role', 'student_profile', 'tutor_profile', 'status']
-        extra_kwargs = {'password': {'write_only': True}}
+        model = ServiceProvider
+        exclude = ('user',)
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
-    student_profile = StudentProfileSerializer(required=False)
-    tutor_profile = TutorProfileSerializer(required=False)
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = CustomUser
-        fields = ['username', 'email', 'password', 'role', 'student_profile', 'tutor_profile']
-        extra_kwargs = {'password': {'write_only': True}}
-
-    def create(self, validated_data):
-        student_profile_data = validated_data.pop('student_profile', None)
-        tutor_profile_data = validated_data.pop('tutor_profile', None)
-        
-        # Hash password
-        validated_data['password'] = make_password(validated_data['password'])
-        
-        user = CustomUser.objects.create(**validated_data)
-        
-        if user.role == 'student' and student_profile_data:
-            StudentProfile.objects.create(user=user, **student_profile_data)
-        elif user.role == 'tutor' and tutor_profile_data:
-            TutorProfile.objects.create(user=user, **tutor_profile_data)
-        
-        return user
+class UserRegistrationSerializer(serializers.Serializer):
+    role = serializers.CharField(required=True)
+    # Common fields
+    # Student fields
+    year_of_study = serializers.IntegerField(required=False)
+    course = serializers.CharField(required=False)
+    hobbies = serializers.CharField(required=False)
+    qualification = serializers.CharField(required=False)
+    institution = serializers.CharField(required=False)
+    # Tutor fields
+    about = serializers.CharField(required=False)
+    phone_number = serializers.IntegerField(required=False)
+    hourly_rate = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    qualifications = serializers.CharField(required=False)
+    # Service Provider fields
+    company_name = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
+    typeofservice = serializers.CharField(required=False)
+    interests = serializers.CharField(required=False)

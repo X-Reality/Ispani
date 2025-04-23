@@ -1,6 +1,23 @@
 from django.core.mail import send_mail
 from django.conf import settings
+import jwt
+import datetime
 
+
+def generate_temp_jwt(payload, expires_in=300):  # 5 minutes default
+    payload['exp'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
+    return token
+
+def decode_temp_jwt(token):
+    try:
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+    
+    
 def send_otp_email(email, otp):
     """
     Send OTP verification code to user's email
