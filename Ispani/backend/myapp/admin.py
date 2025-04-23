@@ -51,8 +51,8 @@ class StudentProfileAdmin(admin.ModelAdmin):
 # Tutor Profile Admin (new)
 @admin.register(TutorProfile)
 class TutorProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'verification_status', 'hourly_rate', 'subject_expertise')
-    search_fields = ('user__username', 'subject_expertise')
+    list_display = ('user', 'verification_status', 'hourly_rate', 'phone_number')
+    search_fields = ('user__username',)
     list_filter = ('verification_status',)
     raw_id_fields = ('user',)
 

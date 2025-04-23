@@ -15,6 +15,8 @@ ROLE_CHOICES = (
 class CustomUser(AbstractUser):
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='student')
     email = models.EmailField(unique=True)
+    username = models.CharField(max_length=150, unique=True)
+
 
     REQUIRED_FIELDS = ['email']
     
@@ -34,7 +36,7 @@ class StudentProfile(models.Model):
     year_of_study = models.IntegerField(null=True, blank=True)
     course = models.CharField(max_length=100, null=True, blank=True)
     hobbies = models.TextField(null=True, blank=True)
-    piece_jobs = models.TextField(null=True, blank=True)
+    qualification = models.TextField(null=True, blank=True)
     institution = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
@@ -51,8 +53,8 @@ class HStudents(models.Model):
 
 class TutorProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='tutor_profile')
-    about= models.CharField(max_length=100, null=True, blank=True)
-    subject_expertise = models.TextField()
+    about = models.CharField(max_length=100, null=True, blank=True)
+    phone_number = models.IntegerField()
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2)
     qualifications = models.TextField()
     verification_status = models.CharField(max_length=20, choices=[

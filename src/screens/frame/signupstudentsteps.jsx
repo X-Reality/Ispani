@@ -1,17 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const MultiStepForm = () => {
   const [step, setStep] = useState(1);
   const nextStep = () => setStep((prev) => prev + 1);
-  const prevStep = () => setStep((prev) => prev - 1);
+
   const [tempToken, setTempToken] = useState("");
-  const [username, setUsername] = useState("");
   const [institution, setInstitution] = useState("");
   const [qualification, setQualification] = useState("");
   const [course, setCourse] = useState("");
   const [yearOfStudy, setYearOfStudy] = useState("");
   const [hobbies, setHobbies] = useState([]);
-  const [pieceJobs, setPieceJobs] = useState("");
 
   const options = [
     "UI/UX",
@@ -39,22 +37,20 @@ const MultiStepForm = () => {
   };
 
   const handleSubmit = () => {
-    fetch("http://127.0.0.1:8000/complete-registration/", {
+    fetch("http://127.0.0.1:8000/auth/complete-registration/", {
       method: "POST",
       headers: {
         'Content-Type': 'application/json',
-        "Authorization": "Bearer $token",
+        "Authorization": `Bearer ${tempToken}`,
       },
       body: JSON.stringify({
         temp_token: tempToken,
-        username: username,
-        institution: institution,
-        qualification: qualification,
-        course: course,
+        
+        institution,
+        qualification,
+        course,
         year_of_study: yearOfStudy,
         hobbies: hobbies.join(", "),
-        piece_jobs: pieceJobs,
-        communication_preference: "email",
       }),
     })
       .then((res) => res.json())
@@ -62,7 +58,7 @@ const MultiStepForm = () => {
         console.log("Registration completed:", data);
         if (data.token) {
           alert("Registration successful!");
-          // Optionally redirect or store token
+          // Redirect or store token
         } else {
           alert("Something went wrong.");
         }
@@ -70,26 +66,25 @@ const MultiStepForm = () => {
       .catch((err) => console.error(err));
   };
 
-
   return (
     <div className="d-flex vh-100 font-sans">
       <div className="w-25 bg-light p-4">
-      <img className="h-4" alt="Logo" src="/assets/logo2.jpg" width="100px" />
-        <div class="progress-container">
-          <div class="progress-step active">
-            <div class="circle"></div>
+        <img className="h-4" alt="Logo" src="/assets/logo2.jpg" width="100px" />
+        <div className="progress-container">
+          <div className="progress-step active">
+            <div className="circle"></div>
             <span>Choose Role</span>
           </div>
-          <div class="progress-step">
-            <div class="circle"></div>
+          <div className="progress-step">
+            <div className="circle"></div>
             <span>Tell us about yourself</span>
           </div>
-          <div class="progress-step">
-            <div class="circle"></div>
+          <div className="progress-step">
+            <div className="circle"></div>
             <span>Choose how you use the app</span>
           </div>
         </div>
-        <p className=" sign-text text-muted small">
+        <p className="sign-text text-muted small">
           Already have an account? <span className="text-success">Login</span>
         </p>
       </div>
@@ -106,7 +101,7 @@ const MultiStepForm = () => {
                   type="button"
                   onClick={() => toggleSelect(item)}
                   className={`btn btn-sm rounded-pill ${
-                    selected.includes(item)
+                    hobbies.includes(item)
                       ? "btn-success"
                       : "btn-outline-success"
                   }`}
@@ -130,78 +125,40 @@ const MultiStepForm = () => {
 
         {step === 2 && (
           <div>
-            <h2 className="mb-4">Tell us about yourself</h2>
+            <h2 className="mb-4">Education Info</h2>
             <form className="mb-3">
               <div className="mb-3">
                 <input
                   type="text"
+                  value={institution}
+                  onChange={(e) => setInstitution(e.target.value)}
                   placeholder="Name of Institution"
                   className="form-control"
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label">Qualification</label>
-                <div className="form-check mb-3">
+
+              <label className="form-label">Qualification</label>
+              {["Diploma", "Degree", "Honors", "Masters", "Other"].map((q) => (
+                <div className="form-check mb-2" key={q}>
                   <input
                     type="radio"
-                    name="usage"
+                    name="qualification"
                     className="form-check-input"
-                    id="personal"
+                    id={q}
+                    value={q}
+                    checked={qualification === q}
+                    onChange={(e) => setQualification(e.target.value)}
                   />
-                  <label htmlFor="personal" className="form-check-label">
-                    Diploma
+                  <label htmlFor={q} className="form-check-label">
+                    {q}
                   </label>
                 </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    name="usage"
-                    className="form-check-input"
-                    id="professional"
-                  />
-                  <label htmlFor="professional" className="form-check-label">
-                    Degree
-                  </label>
-                </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    name="usage"
-                    className="form-check-input"
-                    id="professional"
-                  />
-                  <label htmlFor="professional" className="form-check-label">
-                    Honors
-                  </label>
-                </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    name="usage"
-                    className="form-check-input"
-                    id="professional"
-                  />
-                  <label htmlFor="professional" className="form-check-label">
-                    Masters
-                  </label>
-                </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    name="usage"
-                    className="form-check-input"
-                    id="professional"
-                  />
-                  <label htmlFor="professional" className="form-check-label">
-                    Other
-                  </label>
-                </div>
-              </div>
+              ))}
 
               <button
                 type="button"
                 onClick={nextStep}
-                className="btn btn-success rounded-pill px-4"
+                className="btn btn-success rounded-pill px-4 mt-3"
               >
                 Continue
               </button>
@@ -211,86 +168,50 @@ const MultiStepForm = () => {
 
         {step === 3 && (
           <div>
-            <h2 className="mb-4">Tell us More</h2>
+            <h2 className="mb-4">Final Details</h2>
             <form>
-              <div className="mb-3">
-                <label className="form-label">Course of study</label>
-                <div className="form-check mb-3">
+              <label className="form-label">Course of study</label>
+              {["Industrial Engineering", "Mechanical Engineering", "Software Development"].map((c) => (
+                <div className="form-check mb-2" key={c}>
                   <input
                     type="radio"
-                    name="usage"
+                    name="course"
                     className="form-check-input"
-                    id="personal"
+                    id={c}
+                    value={c}
+                    checked={course === c}
+                    onChange={(e) => setCourse(e.target.value)}
                   />
-                  <label htmlFor="personal" className="form-check-label">
-                    Industrial Engineering
+                  <label htmlFor={c} className="form-check-label">
+                    {c}
                   </label>
                 </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    name="usage"
-                    className="form-check-input"
-                    id="professional"
-                  />
-                  <label htmlFor="professional" className="form-check-label">
-                    Mechincal Enginnering
-                  </label>
-                </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    className="form-check-input"
-                    id="student"
-                  />
-                  <label htmlFor="student" className="form-check-label">
-                    Software Development
-                  </label>
-                </div>
-              </div>
+              ))}
 
-              <div className="mb-3">
-                <label className="form-label">Year of study</label>
-                <div className="form-check mb-3">
+              <label className="form-label mt-3">Year of study</label>
+              {["1st Year", "2nd Year", "3rd Year"].map((y) => (
+                <div className="form-check mb-2" key={y}>
                   <input
                     type="radio"
-                    name="usage"
+                    name="year"
                     className="form-check-input"
-                    id="personal"
+                    id={y}
+                    value={y}
+                    checked={yearOfStudy === y}
+                    onChange={(e) => setYearOfStudy(e.target.value)}
                   />
-                  <label htmlFor="personal" className="form-check-label">
-                    1st Year
+                  <label htmlFor={y} className="form-check-label">
+                    {y}
                   </label>
                 </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    name="usage"
-                    className="form-check-input"
-                    id="professional"
-                  />
-                  <label htmlFor="professional" className="form-check-label">
-                    2nd Year
-                  </label>
-                </div>
-                <div className="form-check mb-3">
-                  <input
-                    type="radio"
-                    className="form-check-input"
-                    id="student"
-                  />
-                  <label htmlFor="student" className="form-check-label">
-                    3rd year
-                  </label>
-                </div>
-              </div>
+              ))}
 
               <button
                 type="button"
-                onClick={nextStep}
-                className="btn btn-success rounded-pill px-4"
+                onClick={handleSubmit}
+                className="btn btn-success rounded-pill px-4 mt-4"
               >
-                Continue
+                Submit
               </button>
             </form>
           </div>

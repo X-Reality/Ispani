@@ -6,6 +6,7 @@ import 'package:ispani/Register.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class OtpScreen extends StatefulWidget {
+  final String username;
   final String email;
   final String password;
 
@@ -13,6 +14,7 @@ class OtpScreen extends StatefulWidget {
     Key? key,
     required this.email,
     required this.password,
+    required this.username,
   }) : super(key: key);
 
   @override
@@ -56,7 +58,7 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final url = Uri.parse('http://127.0.0.1:8000/signup/');
+      final url = Uri.parse('http://127.0.0.1:8000/auth/signup/');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -104,11 +106,12 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final url = Uri.parse('http://127.0.0.1:8000/verify-otp/');
+      final url = Uri.parse('http://127.0.0.1:8000/auth/verify-otp/');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
+          'username': widget.username,
           'email': widget.email,
           'otp': otpCode,
           "password": widget.password,
@@ -122,14 +125,16 @@ class _OtpScreenState extends State<OtpScreen> {
         _tempToken = responseData['temp_token']; // Store the tempToken
         // Navigate to registration form with the temp token
         final reactURL = Uri.parse(
-          'https://your-react-site.com/complete-registration?token=$_tempToken',
+          'http://localhost:3000/roles?token=$_tempToken',
         );
+
         await launchUrl(reactURL, mode: LaunchMode.externalApplication);
         ;
       } else {
         // Handle error response
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Error: ${responseData['error'] ?? 'Unknown error'}"),
+          content: Text(
+              "Error: ${responseData['error'] ?? responseData['message'] ?? 'Unknown error'}"),
           backgroundColor: Colors.red,
         ));
       }

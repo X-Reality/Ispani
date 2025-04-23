@@ -53,12 +53,14 @@ class AuthService {
   }
 
   // Sign up
-  Future<Map<String, dynamic>> signup(String email, String password) async {
+  Future<Map<String, dynamic>> signup(
+      String username, String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/signup/'),
+        Uri.parse('$_baseUrl/auth/signup/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode(
+            {'username': username, 'email': email, 'password': password}),
       );
 
       return {
@@ -75,7 +77,7 @@ class AuthService {
   Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/verify-otp/'),
+        Uri.parse('$_baseUrl/auth/verify-otp/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'otp': otp}),
       );
@@ -108,7 +110,7 @@ class AuthService {
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/login/'),
+        Uri.parse('$_baseUrl/auth/login/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
@@ -149,7 +151,7 @@ class AuthService {
       }
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/registration/'),
+        Uri.parse('$_baseUrl/auth/complete-registration/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
