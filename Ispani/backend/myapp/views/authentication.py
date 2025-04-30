@@ -1,9 +1,9 @@
+from django.core.cache import cache
 import string
 import uuid
 import stripe
 
 from django.contrib.auth import authenticate, login, logout
-from django.core.cache import cache
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from django.conf import settings
@@ -14,6 +14,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import UntypedToken
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+
+from myapp.utils import create_temp_jwt
 
 from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider
 from ..serializers import UserSerializer, UserRegistrationSerializer
@@ -90,13 +94,11 @@ class SignUpView(APIView):
                     }, status=status.HTTP_200_OK)
                 else:
                     # Create a temp token for completing registration
-                    temp_token = str(uuid.uuid4())
-                    # For social auth, we don't need to store a password
-                    cache.set(temp_token, {
+                    temp_token = create_temp_jwt({
                         'email': email,
-
                         'auth_type': auth_type
-                    }, timeout=600)
+                    })
+
                     
                     return Response({
                         "message": "Please complete your registration",
@@ -119,11 +121,12 @@ class VerifyOTPView(APIView):
         if not cached_data or cached_data.get('otp') != otp:
             return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
 
-        temp_token = str(uuid.uuid4())
-        cache.set(temp_token, {
+        temp_token = create_temp_jwt({
             'email': email,
             'username': username,
-        }, timeout=600)
+            'auth_type': 'email'
+        })
+
 
         cache.delete(email)
 
@@ -133,52 +136,73 @@ class VerifyOTPView(APIView):
         }, status=status.HTTP_200_OK)
 
 class CompleteRegistrationView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
+        print("Incoming data:", request.data)  
+        
         temp_token = request.data.get("temp_token")
-        temp_data = cache.get(temp_token)
-        data = request.data
-        role = data.get('role')
-        user = request.user
-
-        if not user or not user.pk:
-            user = CustomUser.objects.create_user(
-            email=temp_data['email'],
-            username=temp_data.get('username', temp_data['email'].split('@')[0]),
-            password=temp_data.get('password') or CustomUser.objects.make_random_password()
-    )
-        if not temp_data:
-            return Response({"error": "Invalid or expired session."}, status=status.HTTP_400_BAD_REQUEST)
+        print("Temp token received:", temp_token)
         
-        auth_type = temp_data.get('auth_type', 'email')
-
-        if not role:
-            return Response({
-                'message': 'Role is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Update user role
-        user.role = role
-        user.save()
+        if not temp_token:
+            return Response({"error": "Missing registration token"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
+            # Parse token
+            token = UntypedToken(temp_token)
+            token_payload = token.payload
+            
+            # Debug token payload
+            print("Token payload:", token_payload)
+            
+            # Get required fields
+            email = token_payload.get('email')
+            username = token_payload.get('username')
+            
+            if not email or not username:
+                return Response({"error": "Invalid token: missing required fields"}, 
+                              status=status.HTTP_400_BAD_REQUEST)
+            
+            # Get user if exists or create a new one
+            try:
+                user = CustomUser.objects.get(email=email)
+            except CustomUser.DoesNotExist:
+                # Create a new user if they don't exist
+                user = CustomUser.objects.create_user(
+                    email=email,
+                    username=username,
+                    password=token_payload.get('password') or CustomUser.objects.make_random_password()
+                )
+            
+            # Get role and other required data
+            role = request.data.get('role')
+            if not role:
+                return Response({"error": "Role is required"}, 
+                              status=status.HTTP_400_BAD_REQUEST)
+            
+            # Update user role
+            user.role = role
+            user.save()
+            
+            # Process profile specific data
             if role == 'student':
                 StudentProfile.objects.create(
                     user=user,
-                    year_of_study=data.get('year_of_study'),
-                    course=data.get('course'),
-                    hobbies=data.get('hobbies'),
-                    qualification=data.get('qualification'),
-                    institution=data.get('institution')
+                    city=request.data.get('city'),
+                    year_of_study=request.data.get('year_of_study'),
+                    course=request.data.get('course'),
+                    hobbies=request.data.get('hobbies'),
+                    qualification=request.data.get('qualification'),
+                    institution=request.data.get('institution')
                 )
             elif role == 'tutor':
                 TutorProfile.objects.create(
                     user=user,
-                    about=data.get('about'),
-                    phone_number=data.get('phone_number'),
-                    hourly_rate=data.get('hourly_rate'),
-                    qualifications=data.get('qualifications')
+                    city=request.data.get('city'),
+                    about=request.data.get('about'),
+                    phone_number=request.data.get('phone_number'),
+                    hourly_rate=request.data.get('hourly_rate'),
+                    qualification=request.data.get('qualification')
                 )
             elif role == 'hs student':
                 HStudents.objects.create(
@@ -187,23 +211,36 @@ class CompleteRegistrationView(APIView):
             elif role == 'service provider':
                 ServiceProvider.objects.create(
                     user=user,
-                    company_name=data.get('company_name'),
-                    description=data.get('description'),
-                    typeofservice=data.get('typeofservice'),
-                    qualification=data.get('qualification'),
-                    interests=data.get('interests'),
-                    hobbies=data.get('hobbies')
+                    city=request.data.get('city'),
+                    company_name=request.data.get('company_name'),
+                    description=request.data.get('description'),
+                    typeofservice=request.data.get('typeofservice'),
+                    qualification=request.data.get('qualification'),
+                    interests=request.data.get('interests'),
+                    hobbies=request.data.get('hobbies')
                 )
-            # Add other role-specific profiles as needed
+            
+            # Generate authentication tokens for immediate login
+            refresh = RefreshToken.for_user(user)
             
             return Response({
-                'message': 'Profile completed successfully'
+                "message": "Profile completed successfully",
+                "user": UserSerializer(user).data,
+                "token": {
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                }
             }, status=status.HTTP_200_OK)
-            
+                
+        except (TokenError, InvalidToken) as e:
+            return Response({"error": f"Invalid token: {str(e)}"}, 
+                         status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({
-                'message': f'Error completing profile: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"Registration error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({"error": f"Registration error: {str(e)}"}, 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
