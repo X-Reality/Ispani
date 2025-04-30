@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:ispani/Register.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -27,7 +26,7 @@ class _OtpScreenState extends State<OtpScreen> {
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  String? _tempToken; // Store the temp token here
+  String? _tempToken;
 
   @override
   void dispose() {
@@ -65,6 +64,8 @@ class _OtpScreenState extends State<OtpScreen> {
         body: jsonEncode({
           'email': widget.email,
           'password': widget.password,
+          'username': widget
+              .username, // Added username to ensure it's included in resend
         }),
       );
 
@@ -77,10 +78,12 @@ class _OtpScreenState extends State<OtpScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(responseData['error'] ?? 'Failed to resend OTP')),
+            content: Text(responseData['error'] ?? 'Failed to resend OTP'),
+          ),
         );
       }
     } catch (e) {
+      print('Error resending OTP: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -114,33 +117,52 @@ class _OtpScreenState extends State<OtpScreen> {
           'username': widget.username,
           'email': widget.email,
           'otp': otpCode,
-          "password": widget.password,
+          'password': widget.password,
         }),
       );
 
       final responseData = jsonDecode(response.body);
+      print('OTP verification response: $responseData'); // Debug logging
 
       if (response.statusCode == 200) {
         // Extract the temp_token from the response
-        _tempToken = responseData['temp_token']; // Store the tempToken
-        // Navigate to registration form with the temp token
-        final reactURL = Uri.parse(
-          'http://localhost:3000/roles?token=$_tempToken',
-        );
+        _tempToken = responseData['temp_token'];
+        print('Received temp token: $_tempToken'); // Debug logging
 
-        await launchUrl(reactURL, mode: LaunchMode.externalApplication);
-        ;
+        // Store token in secure storage for potential later use
+        if (_tempToken != null) {
+          await _storage.write(key: 'temp_token', value: _tempToken);
+
+          // Ensure token is properly encoded in URL
+          final encodedToken = Uri.encodeComponent(_tempToken!);
+          final reactURL = Uri.parse(
+            'http://localhost:3000/?token=$encodedToken',
+          );
+
+          print('Launching URL: ${reactURL.toString()}');
+
+          // Try to launch the URL with fallback
+          if (await canLaunchUrl(reactURL)) {
+            await launchUrl(reactURL, mode: LaunchMode.externalApplication);
+          } else {
+            throw 'Could not launch $reactURL';
+          }
+        } else {
+          throw 'Empty token received from server';
+        }
       } else {
         // Handle error response
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              "Error: ${responseData['error'] ?? responseData['message'] ?? 'Unknown error'}"),
-          backgroundColor: Colors.red,
-        ));
+        throw responseData['error'] ??
+            responseData['message'] ??
+            'Unknown error';
       }
     } catch (e) {
+      print('Error in OTP verification: $e'); // Debug logging
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -202,8 +224,9 @@ class _OtpScreenState extends State<OtpScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(
-                              color: Color.fromARGB(255, 147, 182, 138),
-                              width: 2),
+                            color: Color.fromARGB(255, 147, 182, 138),
+                            width: 2,
+                          ),
                         ),
                       ),
                       onChanged: (value) {
