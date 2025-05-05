@@ -4,7 +4,7 @@ import jwt
 import datetime
 
 
-def generate_temp_jwt(payload, expires_in=300):  # 5 minutes default
+def create_temp_jwt(payload, expires_in=300):  # 5 minutes default
     payload['exp'] = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
     return token

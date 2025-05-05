@@ -75,7 +75,7 @@ def create_user_status(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=CustomUser)
 def create_user_profile(sender, instance, created, **kwargs):
-    if created and instance.role == 'student':
+    if created and instance.roles == 'student':
         StudentProfile.objects.create(user=instance)
 
 class UserStatus(models.Model):

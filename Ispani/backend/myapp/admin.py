@@ -24,21 +24,27 @@ from .models import (
 # Custom User Admin
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('username', 'email', 'role', 'is_active', 'is_staff')
-    list_filter = ('role', 'is_active', 'is_staff')
+    list_display = ('username', 'email', 'display_roles', 'is_active', 'is_staff')
+    list_filter = ('is_active', 'is_staff')  # Can't filter JSONField directly
     search_fields = ('username', 'email')
+
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Personal Info', {'fields': ('email', 'role')}),
+        ('Personal Info', {'fields': ('email', 'roles', 'city')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
+
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'email', 'role', 'password1', 'password2'),
+            'fields': ('username', 'email', 'roles', 'password1', 'password2'),
         }),
     )
+
+    def display_roles(self, obj):
+        return ', '.join(obj.roles)
+    display_roles.short_description = 'Roles'
 
 # Student Profile Admin (updated)
 @admin.register(StudentProfile)
