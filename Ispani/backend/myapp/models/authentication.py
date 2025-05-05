@@ -13,8 +13,9 @@ ROLE_CHOICES = (
 )
 
 class CustomUser(AbstractUser):
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='student')
+    roles = models.JSONField(default=list) 
     email = models.EmailField(unique=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
     username = models.CharField(max_length=150, unique=True)
 
 
@@ -32,7 +33,8 @@ class StudentProfile(models.Model):
     REQUIRED_FIELDS = ['email'] 
     REQUIRED_FIELDS = ['username']
 
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='student_profile')
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='student_profile',unique=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
     year_of_study = models.IntegerField(null=True, blank=True)
     course = models.CharField(max_length=100, null=True, blank=True)
     hobbies = models.TextField(null=True, blank=True)

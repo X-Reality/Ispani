@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .authentication import UserSerializer
+from .authentication import StudentProfileSerializer, UserSerializer
 from ..models import (
     CustomUser, ExternalCalendarConnection, MeetingProvider,CalendlyEvent,
     Booking,GroupSessionParticipant,Payment, StudentProfile,TutorAvailability, TutorProfile, UserStatus
@@ -10,11 +10,6 @@ class UserStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserStatus
         fields = ['is_online', 'last_active', 'status_message']
-
-class StudentProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = StudentProfile
-        fields = ['year_of_study', 'course', 'hobbies', 'piece_jobs', 'communication_preference']
 
 class TutorProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'role', 'student_profile', 'tutor_profile', 'status']
+        fields = ['id', 'username', 'email', 'roles', 'student_profile', 'tutor_profile', 'status']
         extra_kwargs = {'password': {'write_only': True}}
 
 
