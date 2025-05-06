@@ -46,30 +46,32 @@ class StudentProfile(models.Model):
     
 class HStudents(models.Model):
 
-     REQUIRED_FIELDS = ['email'] 
-     REQUIRED_FIELDS = ['username']
+    REQUIRED_FIELDS = ['email'] 
+    REQUIRED_FIELDS = ['username']
 
-     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='hstudent_profile')
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='hstudent_profile')
+    city = models.CharField(max_length=100, null=True, blank=True)
+    hobbies = models.TextField(null=True, blank=True)
 
+    def __str__(self):
+        return f"HStudents Profile: {self.user.username}"
 
 
 class TutorProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='tutor_profile')
     about = models.CharField(max_length=100, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.IntegerField()
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2)
     qualifications = models.TextField()
-    verification_status = models.CharField(max_length=20, choices=[
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected')
-    ], default='pending')
+    calendly_id = models.CharField(max_length=255, null=True, blank=True)
     
     def __str__(self):
         return f"Tutor Profile: {self.user.username}"
     
 class ServiceProvider(models.Model):
      user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='serviceprovider_profile')
+     city = models.CharField(max_length=100, null=True, blank=True)
      company_name = models.CharField(max_length=100)  
      description = models.CharField(max_length=100)  
      typeofservice = models.TextField()

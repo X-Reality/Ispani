@@ -20,6 +20,9 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', cast=bool)
 CALENDLY_API_KEY = config('CALENDLY_API_KEY')
 
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -135,8 +138,12 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR /'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'ispani',
+        'USER': 'postgres',
+        'PASSWORD': 'ispani123',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
