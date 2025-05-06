@@ -1,183 +1,255 @@
 import 'package:flutter/material.dart';
+import 'TutoringProfileScreen.dart';
 
-class BookTutorScreen extends StatefulWidget {
-  @override
-  _BookTutorScreenState createState() => _BookTutorScreenState();
-}
-
-class _BookTutorScreenState extends State<BookTutorScreen> {
-  String selectedDay = '';
-  String selectedTime = '';
+class TutorsScreen extends StatelessWidget {
+  const TutorsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Book a Tutor'),
+        backgroundColor: Colors.white,
+        title: const Text('Tutors'),
+        actions: [
+          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTutorList(),
-            SizedBox(height: 20),
-            _buildTutorProfile(),
-            SizedBox(height: 20),
-            _buildCalendarSection(),
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(icon: Icon(Icons.school), label: "Tutoring"),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: "Message"),
+          BottomNavigationBarItem(icon: Icon(Icons.group), label: "Groups"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        ],
       ),
-    );
-  }
-
-  Widget _buildTutorList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Industrial Engineering Tutors', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        SizedBox(height: 10),
-        _buildModuleItem('Maths III', true),
-        _buildModuleItem('Mechanics II', true),
-        _buildModuleItem('Stats IV', false),
-        Divider(),
-        _buildTutorRating('Mr Kitso', 2),
-        _buildTutorRating('Ms Karabo', 1),
-        _buildTutorRating('Ms Dineo', 4),
-      ],
-    );
-  }
-
-  Widget _buildModuleItem(String module, bool isVisible) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(module),
-        TextButton(
-          onPressed: () {},
-          child: Text(isVisible ? 'View' : 'Hide'),
-        )
-      ],
-    );
-  }
-
-  Widget _buildTutorRating(String name, int stars) {
-    return ListTile(
-      leading: Icon(Icons.person),
-      title: Text(name),
-      subtitle: Row(
-        children: List.generate(5, (index) => Icon(
-          index < stars ? Icons.star : Icons.star_border,
-        )),
+      body: Column(
+        children: [
+          const SizedBox(height: 10),
+          _buildCategoryFilters(),
+          const SizedBox(height: 10),
+          Expanded(child: _buildTutorList(context)), // Pass context here
+        ],
       ),
     );
   }
 
-  Widget _buildTutorProfile() {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(radius: 30),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Ms Dineo Mbedi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('3-star rating'),
-                      Text('3rd year student with 5+ distinctions')
-                    ],
-                  ),
-                )
-              ],
+  Widget _buildCategoryFilters() {
+    final categories = ["All", "Design", "Coding", "Mobile", "Web", "Flutter", "JavaScript", "React", "Dart"];
+    return SizedBox(
+      height: 60,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final selected = index == 0;
+          return Container(
+            height: 50,
+            child: ChoiceChip(
+              label: Text(categories[index]),
+              selected: selected,
+              selectedColor: Colors.green[200],
+              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+              backgroundColor: Colors.grey[200],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(26),
+              ),
+              onSelected: (_) {},
             ),
-            SizedBox(height: 10),
-            Text('Modules Tutored: Maths, Stats IV'),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildProfileStat('Distinctions', '5+'),
-                _buildProfileStat('Students Tutored', '13+'),
-                _buildProfileStat('Sessions', '5+'),
-              ],
-            ),
-            SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {},
-              child: Text('Book Tutor'),
-            )
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildProfileStat(String title, String value) {
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(title)
-      ],
-    );
-  }
-
-  Widget _buildCalendarSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Ms Dineo's Calendar", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          children: List.generate(14, (index) {
-            String day = (index + 1).toString();
-            return ChoiceChip(
-              label: Text(day),
-              selected: selectedDay == day,
-              onSelected: (selected) {
-                setState(() {
-                  selectedDay = selected ? day : '';
-                });
-              },
-            );
-          }),
-        ),
-        SizedBox(height: 20),
-        if (selectedDay.isNotEmpty) _buildTimeSlots()
-      ],
-    );
-  }
-
-  Widget _buildTimeSlots() {
-    final slots = [
-      {'time': '9:00 - 10:00', 'status': 'Available'},
-      {'time': '12:00 - 13:00', 'status': 'Available'},
-      {'time': '16:00 - 17:00', 'status': 'Public session booked'},
+  Widget _buildTutorList(BuildContext context) {
+    final tutors = [
+      {
+        'name': 'Khanyisile Jackson',
+        'subject': 'Intro to Drone Tech',
+        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
+        'students': 37,
+        'reviews': 38,
+        'hours': 200,
+        'description': 'The filter elements at the top must (All, Design, Coding, etc.) be horizontally scrollable and include keywords for mobile/web dev.',
+        'avatar': 'assets/backgroung.jpg'
+      },
+      {
+        'name': 'Richard Nelson',
+        'subject': 'Intro to Drone Tech',
+        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
+        'students': 37,
+        'reviews': 20,
+        'hours': 200,
+        'description': '',
+        'avatar': 'assets/backgroung.jpg'
+      },
+      {
+        'name': 'Richard Nelson',
+        'subject': 'Intro to Drone Tech',
+        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
+        'students': 37,
+        'reviews': 20,
+        'hours': 200,
+        'description': '',
+        'avatar': 'assets/backgroung.jpg'
+      },
+      {
+        'name': 'Richard Nelson',
+        'subject': 'Intro to Drone Tech',
+        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
+        'students': 37,
+        'reviews': 20,
+        'hours': 200,
+        'description': '',
+        'avatar': 'assets/backgroung.jpg'
+      },
     ];
 
-    return Column(
-      children: slots.map((slot) {
-        return ListTile(
-          title: Text(slot['time']!),
-          subtitle: Text(slot['status']!),
-          trailing: ElevatedButton(
-            onPressed: slot['status'] == 'Available'
-                ? () {
-              setState(() {
-                selectedTime = slot['time']!;
-              });
-            }
-                : null,
-            child: Text(slot['status'] == 'Available' ? 'Book Slot' : 'Request to Join'),
-          ),
+    return ListView.builder(
+      itemCount: tutors.length,
+      itemBuilder: (context, index) {
+        final tutor = tutors[index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _tutorCard(context, tutor), // Pass context here
         );
-      }).toList(),
+      },
+    );
+  }
+
+  Widget _tutorCard(BuildContext context, Map<String, dynamic> tutor) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey, width: 1),
+        color: Colors.white,
+      ),
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: Colors.white,
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(backgroundImage: AssetImage(tutor['avatar']), radius: 24),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tutor['name'],
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.school, size: 16),
+                            Text(" ${tutor['students']}  "),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.timer, size: 16),
+                            Text(" ${tutor['hours']}  "),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.star, size: 16),
+                            Text(" ${tutor['reviews']}"),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey[300],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.favorite, color: Colors.black),
+                      onPressed: () {},
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  tutor['subject'],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 30,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 22,
+                children: List.generate(
+                  tutor['tags'].length,
+                      (index) => Chip(
+                    label: Text(
+                      tutor['tags'][index],
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    backgroundColor: Colors.grey[200],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (tutor['description'] != '')
+                Text(tutor['description'], style: const TextStyle(fontSize: 15)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 147, 182, 138),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        minimumSize: const Size(double.infinity, 45),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => TutorProfileScreen()),
+                        );
+                      },
+                      child: const Text(
+                        "Book a Lesson",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.rectangle,
+                      color: Colors.grey[300],
+                      borderRadius: const BorderRadius.all(Radius.circular(10)),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.message_outlined, color: Colors.black),
+                      onPressed: () {},
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

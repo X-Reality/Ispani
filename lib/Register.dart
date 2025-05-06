@@ -16,7 +16,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   int _currentStep = 0;
   final PageController _pageController = PageController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
+  String _otherHobby = "";
   int _selectedYear = 1;
   String _selectedNeed = "";
   String _selectedCommunication = "";
@@ -98,9 +98,13 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
                 selectedValues.add(option);
               } else {
                 selectedValues.remove(option);
+
+                // Reset _otherHobby if "Other" is unchecked
+                if (option == "Other") _otherHobby = "";
               }
             });
           },
+          controlAffinity: ListTileControlAffinity.leading,
         );
       }).toList(),
     );
@@ -110,7 +114,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(backgroundColor: Colors.white, title: Text("Survey Form")),
+      appBar: AppBar(backgroundColor: Colors.white, title: Text("Registration form")),
       body: Form(
         key: _formKey,
         child: Column(
@@ -127,10 +131,11 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
                 controller: _pageController,
                 physics: NeverScrollableScrollPhysics(),
                 children: [
+                  
                   _buildScreen1(),
                   _buildScreen2(),
                   _buildScreen3(),
-                  _buildScreen4(),
+                  _buildScreen4()
                 ],
               ),
             ),
@@ -216,7 +221,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           Text("Basic Information",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           SizedBox(height: 36),
-          _buildTextField("Name", "Enter your name", _nameController),
+          _buildTextField("Username", "Enter your Username", _nameController),
           SizedBox(height: 16),
           _buildTextField("Course", "Enter your Course", _courseController),
           SizedBox(height: 16),
@@ -225,7 +230,6 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
       ),
     );
   }
-
   Widget _buildScreen2() {
     return Padding(
       padding: EdgeInsets.all(16.0),
@@ -235,18 +239,19 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
           Text("Academic & Work Details",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Text("Year of Study"),
-          _buildRadioList(["1st year", "2nd year", "3rd year"], _selectedYear.toString(), (val) {
+          _buildRadioList(["1", "2", "3"], _selectedYear.toString(), (val) {
             setState(() {
-              _selectedYear = int.parse(val!);
+              _selectedYear = int.parse(val!);  // Convert back to int
             });
           }),
           SizedBox(height: 16),
           Text("What piece jobs would you do?"),
-          _buildCheckboxList(["Tutoring", "Selling stuff", "Delivering on campus"], _selectedJobs),
+          _buildCheckboxList(["Tutoring", "Selling stuff", "Delivering on campus","Hairstyling","Phone Repair", "CAD and 3D Modeling"], _selectedJobs),
         ],
       ),
     );
   }
+
 
   Widget _buildScreen3() {
     return Padding(
@@ -255,11 +260,29 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Hobbies & Needs", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildCheckboxList(["Chess", "Soccer"], _selectedHobbies),
+          _buildCheckboxList(["Chess", "Soccer", "Gym, Jogging", "Singing, Church, Dancing, Content Creating", "Other"], _selectedHobbies),
+
+          // Show TextField if "Other" is selected
+          if (_selectedHobbies.contains("Other"))
+            Padding(
+              padding: EdgeInsets.only(top: 10),
+              child: TextField(
+                decoration: InputDecoration(
+                  labelText: "Please specify",
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _otherHobby = value;
+                  });
+                },
+              ),
+            ),
         ],
       ),
     );
   }
+
 
   Widget _buildScreen4() {
     return Padding(
@@ -268,7 +291,7 @@ class _MultiScreenFormState extends State<MultiScreenForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Preferences", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          _buildRadioList(["WhatsApp", "Email"], _selectedCommunication, (val) {
+          _buildRadioList(["WhatsApp", "Email","Calls" "SMS"], _selectedCommunication, (val) {
             setState(() {
               _selectedCommunication = val!;
             });

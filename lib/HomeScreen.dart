@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:ispani/GroupsScreen.dart';
 import 'package:ispani/MessagesScreen.dart';
 import 'package:ispani/ProfileScreen.dart';
@@ -126,8 +125,9 @@ class CustomBottomNavigationBar extends StatelessWidget {
       type: BottomNavigationBarType.fixed,
       currentIndex: currentIndex,
       onTap: onTap,
-      selectedItemColor: Colors.blue,
+      selectedItemColor: Color.fromARGB(255, 147, 182, 138),
       unselectedItemColor: Colors.grey,
+      backgroundColor: Colors.white,
       items: [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
@@ -135,7 +135,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
           icon: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.blue,
+              color: Color.fromARGB(255, 147, 182, 138),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.explore, color: Colors.white),
@@ -194,13 +194,13 @@ class HomeTabScreen extends StatelessWidget {
                 Text("Communities", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 TextButton(
                   onPressed: () {},
-                  child: Text("View all", style: TextStyle(color: Colors.blue)),
+                  child: Text("View all", style: TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
                 ),
               ],
             ),
             SizedBox(height: 10),
             Column(
-              children: List.generate(4, (index) => _buildCommunityItem()),
+              children: List.generate(1, (index) => _buildCommunityItems()),
             ),
             SizedBox(height: 20),
             Text("Explore", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -211,24 +211,59 @@ class HomeTabScreen extends StatelessWidget {
       ),
     );
   }
+  Widget _buildCommunityItems() {
+    final communities = [
+      {
+        "name": "weCode",
+        "members": "23K",
+        "description": "Where Code Comes Alive",
+        "image": "assets/wecode.jpg"
+      },
+      {
+        "name": "Flutter Devs",
+        "members": "18K",
+        "description": "Building Apps with Flutter",
+        "image": "assets/flutter.jpg"
+      },
+      {
+        "name": "AI Enthusiasts",
+        "members": "15K",
+        "description": "Exploring the Future of AI",
+        "image": "assets/ai.jpg"
+      },
+      {
+        "name": "UI/UX Creators",
+        "members": "12K",
+        "description": "Designing User Experiences",
+        "image": "assets/uiux.jpg"
+      },
+    ];
 
-  Widget _buildCommunityItem() {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: AssetImage("assets/Liverpool-logo.jpg"),
-      ),
-      title: Text("weCode", style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text("23K members - Where Code Comes Alive"),
-      trailing: ElevatedButton(
-        onPressed: () {},
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: Text("Join", style: TextStyle(color: Colors.white)),
-      ),
+    return Column(
+      children: communities.take(4).map((community) {
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: AssetImage(community["image"]!),
+          ),
+          title: Text(
+            community["name"]!,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text("${community["members"]} members - ${community["description"]}"),
+          trailing: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color.fromARGB(255, 147, 182, 138),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text("Join", style: TextStyle(color: Colors.white)),
+          ),
+        );
+      }).toList(),
     );
   }
+
+
 
   Widget _buildServiceItems(BuildContext context) {
     final services = [
@@ -252,7 +287,7 @@ class HomeTabScreen extends StatelessWidget {
               if (service == "Book a Tutor") {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => BookTutorScreen()),
+                  MaterialPageRoute(builder: (context) => TutorsScreen()),
                 );
               }
             },
