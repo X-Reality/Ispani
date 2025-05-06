@@ -1,13 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from .models.tutoring import TutorEarning, Review, Booking, Notification
 from .models import (
-    CalendlyEvent,
     CustomUser,
-    ExternalCalendarConnection,
-    MeetingProvider,
     StudentProfile,
     TutorProfile,
-    Group,Event,EventParticipant, 
+    Group, Event, EventParticipant, 
     EventTag, EventComment, EventMedia,
     ChatRoom,
     ChatMessage,
@@ -16,10 +14,8 @@ from .models import (
     UserStatus,
     GroupMembership,
     MessageAttachment,
-    TutorAvailability,
-    Booking,
-    Payment
 )
+from django.conf import settings
 
 # Custom User Admin
 @admin.register(CustomUser)
@@ -46,44 +42,46 @@ class CustomUserAdmin(UserAdmin):
         return ', '.join(obj.roles)
     display_roles.short_description = 'Roles'
 
-# Student Profile Admin (updated)
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'year_of_study', 'course')
-    search_fields = ('user__username', 'user__email', 'course')
-    list_filter = ('year_of_study', 'course')
-    raw_id_fields = ('user',)
-
-# Tutor Profile Admin (new)
-@admin.register(TutorProfile)
-class TutorProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'verification_status', 'hourly_rate', 'phone_number')
+    list_display = ('user',)
     search_fields = ('user__username',)
-    list_filter = ('verification_status',)
-    raw_id_fields = ('user',)
 
-# Tutor Availability Admin (new)
-@admin.register(TutorAvailability)
-class TutorAvailabilityAdmin(admin.ModelAdmin):
-    list_display = ('tutor', 'start_time', 'end_time', 'is_booked')
-    list_filter = ('is_booked', 'tutor')
-    search_fields = ('tutor__username',)
-    date_hierarchy = 'start_time'
-    raw_id_fields = ('tutor',)
+class TutorProfileAdmin(admin.ModelAdmin):
+    list_display = ('user',)
+    search_fields = ('user__username',)
 
-# Booking Admin (new)
-@admin.register(Booking)
+admin.site.register(TutorProfile, TutorProfileAdmin)
+
+# Register Booking
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'student', 'tutor', 'status', 'start_time', 'duration_minutes', 'price')
-    list_filter = ('status', 'tutor')
-    search_fields = ('student__username', 'tutor__username', 'subject')
-    raw_id_fields = ('student', 'tutor')
+    list_display = ('student', 'tutor', 'topic')
+    search_fields = ('student__user__username', 'tutor__user__username', 'topic')
 
-    
-    def start_time(self, obj):
-        return obj.availability.start_time
-    start_time.short_description = 'Start Time'
-    start_time.admin_order_field = 'availability__start_time'
+admin.site.register(Booking, BookingAdmin)
+
+# Register TutorEarnings
+class TutorEarningsAdmin(admin.ModelAdmin):
+    list_display = ('tutor', 'amount', 'created_at')
+    search_fields = ('tutor__user__username',)
+
+admin.site.register(TutorEarning, TutorEarningsAdmin)
+
+# Register Review
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('booking', 'rating', 'comment', 'created_at')
+    search_fields = ('booking__student__user__username', 'booking__tutor__user__username')
+    list_filter = ('rating',)
+
+admin.site.register(Review, ReviewAdmin)
+
+# Register Notification
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'message', 'is_read', 'created_at')
+    search_fields = ('recipient__username', 'message')
+    list_filter = ('is_read', 'created_at')
+
+admin.site.register(Notification, NotificationAdmin)
 
 # Event scheduling
 @admin.register(Event)
@@ -118,16 +116,6 @@ class EventMediaAdmin(admin.ModelAdmin):
     search_fields = ('event__title', 'uploaded_by__username', 'title')
     list_filter = ('media_type', 'uploaded_at')
     ordering = ('-uploaded_at',)
-
-
-# Payment Admin (new)
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('booking', 'amount', 'status', 'created_at', 'paid_at')
-    list_filter = ('status',)
-    search_fields = ('booking__id', 'payment_intent_id')
-    raw_id_fields = ('booking',)
-    date_hierarchy = 'created_at'
 
 # Existing admin classes (updated with any necessary changes)
 @admin.register(Group)
@@ -189,15 +177,3 @@ class MessageAttachmentAdmin(admin.ModelAdmin):
     list_display = ('message', 'attachment_type', 'file')
     search_fields = ('message__content',)
     raw_id_fields = ('message',)
-
-@admin.register(ExternalCalendarConnection)
-class ExternalCalendarConnectionAdmin(admin.ModelAdmin):
-    list_display = ('provider', 'calendly_username', 'is_active')
-
-@admin.register(MeetingProvider)
-class MeetingProviderAdmin(admin.ModelAdmin):
-    list_display = ('provider', 'is_default')
-
-@admin.register(CalendlyEvent)
-class CalendlyEventAdmin(admin.ModelAdmin):
-    list_display = ('event_type_name', 'invitee_name', 'start_time', 'status')
