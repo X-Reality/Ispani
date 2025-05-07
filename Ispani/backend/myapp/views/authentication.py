@@ -4,7 +4,11 @@ import stripe
 
 from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,7 +16,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from myapp.utils import create_temp_jwt
+from myapp.utils import assign_user_to_dynamic_group, create_temp_jwt
 
 from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider
 from ..serializers import UserSerializer, UserRegistrationSerializer
@@ -33,10 +37,17 @@ class SignUpView(APIView):
         if CustomUser.objects.filter(email=email).exists():
             return Response({"error": "Email already in use"}, status=status.HTTP_400_BAD_REQUEST)
 
-        otp = str(uuid.uuid4().int)[:6]  # Just a dummy OTP logic, replace with proper OTP generator
-        cache.set(email, {"otp": otp, "password": password, "username": username}, timeout=3600)
+        # Generate a 6-digit OTP
+        otp = str(uuid.uuid4().int)[:6]
+        
+        # Store user registration data and OTP in cache
+        cache.set(f"otp_{email}", {
+            "otp": otp, 
+            "password": password, 
+            "username": username
+        }, timeout=3600)  # OTP valid for 1 hour
 
-        # Here you would send the OTP via email
+        # Send the OTP via email
         send_mail(
             subject="Your OTP Code",
             message=f"Use this OTP to continue your registration: {otp}",
@@ -51,19 +62,37 @@ class VerifyOTPView(APIView):
 
     def post(self, request):
         email = request.data.get("email")
-        username = request.data.get("username")
-        # otp = request.data.get("otp")  # Omitted for now
-
+        otp = request.data.get("otp")
+        
+        if not email or not otp:
+            return Response({"error": "Email and OTP are required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Retrieve stored data from cache
+        cached_data = cache.get(f"otp_{email}")
+        
+        if not cached_data:
+            return Response({"error": "OTP has expired or email is invalid"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify OTP
+        if cached_data["otp"] != otp:
+            return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # OTP verified, generate temp token for registration completion
         temp_token = str(uuid.uuid4())
-
+        
+        # Store validated data for registration completion
         cache.set(f"reg_{temp_token}", {
             'email': email,
-            'username': username,
+            'username': cached_data["username"],
+            'password': cached_data["password"],
             'auth_type': 'email'
         }, timeout=3600)
+        
+        # Clear the OTP from cache to prevent reuse
+        cache.delete(f"otp_{email}")
 
         return Response({
-            "message": "Ready to complete registration",
+            "message": "OTP verified successfully. Ready to complete registration",
             "temp_token": temp_token,
         }, status=status.HTTP_200_OK)
 
@@ -108,6 +137,11 @@ class CompleteRegistrationView(APIView):
 
             # Create profiles based on the selected roles
             for role in roles:
+
+                city = request.data.get('city', '')
+                qualification = request.data.get('qualification', '')
+                institution = request.data.get('institution', '')
+
                 if role == 'student':
                     StudentProfile.objects.create(
                         user=user,
@@ -118,26 +152,54 @@ class CompleteRegistrationView(APIView):
                         qualification=request.data.get('qualification', ''),
                         institution=request.data.get('institution', '')
                     )
+                    assign_user_to_dynamic_group(user, role, city, institution, qualification)
+
                 elif role == 'tutor':
                     TutorProfile.objects.create(
                         user=user,
                         about=request.data.get('about', ''),
+                        city=request.data.get('city', ''),
                         phone_number=request.data.get('phone_number', ''),
                         hourly_rate=request.data.get('hourly_rate', 0),
                         qualification=request.data.get('qualification', '')
                     )
+                    assign_user_to_dynamic_group(user, role, city)
+
                 elif role == 'hs student':
-                    HStudents.objects.create(user=user)
+                    HStudents.objects.create(
+                        user=user,
+                        schoolName=request.data.get('schoolName', ''),
+                        studyLevel=request.data.get('studyLevel', ''),
+                        city=request.data.get('city', ''),
+                        subjects=request.data.get(' subjects', []),
+                        hobbies=request.data.get('hobbies', [])
+                    )                        
+                    assign_user_to_dynamic_group(user, role, city)
+
                 elif role == 'service provider':
                     ServiceProvider.objects.create(
                         user=user,
-                        company_name=request.data.get('company_name', ''),
-                        description=request.data.get('description', ''),
-                        typeofservice=request.data.get('typeofservice', ''),
-                        qualification=request.data.get('qualification', ''),
-                        interests=request.data.get('interests', []),
-                        hobbies=request.data.get('hobbies', [])
+                        company=request.data.get('company', ''),
+                        about=request.data.get('about', ''),
+                        city=request.data.get('city', ''),
+                        usageType=request.data.get('typeofservice', ''),
+                        sectors =request.data.get('sectors ', []),
+                        hobbies=request.data.get('hobbies', []),
+                        serviceNeeds=request.data.get('serviceNeeds', [])
                     )
+                    assign_user_to_dynamic_group(user, role, city)
+
+                elif role == 'jobseeker':
+                    ServiceProvider.objects.create(
+                        user=user,
+                        cellnumber=request.data.get('cellnumber', ''),
+                        status=request.data.get('status',  []),
+                        city=request.data.get('city', ''),
+                        usage=request.data.get('usage', []),
+                        hobbies=request.data.get('hobbies', []),
+                    )
+                    assign_user_to_dynamic_group(user, role, city)
+
 
             refresh = RefreshToken.for_user(user)
             cache.delete(f"reg_{temp_token}")
@@ -196,9 +258,64 @@ class LogoutView(APIView):
         logout(request)
         return Response({"message": "Logout successful. Please delete the token on the client side."})
 
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+
+        if not email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            return Response({"message": "If an account with that email exists, we've sent a reset link."}, status=status.HTTP_200_OK)
+
+        # Generate token and uid
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        # Build reset link
+        reset_link = f"{settings.FRONTEND_RESET_URL}?uid={uid}&token={token}"
+
+        # Send the email
+        send_mail(
+            subject='Reset your password',
+            message=f"Click the link to reset your password: {reset_link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+        return Response({"message": "If an account with that email exists, we've sent a reset link."}, status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(APIView):
+    def post(self, request):
+        uidb64 = request.data.get('uid')
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+
+        if not uidb64 or not token or not new_password:
+            return Response({"error": "All fields (uid, token, new_password) are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            user = CustomUser.objects.get(pk=uid)
+        except (CustomUser.DoesNotExist, ValueError, TypeError, OverflowError):
+            return Response({"error": "Invalid user ID."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response({"message": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+    
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return Response(serializer.data) 

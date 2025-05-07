@@ -23,6 +23,10 @@ CALENDLY_API_KEY = config('CALENDLY_API_KEY')
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
+
+FRONTEND_RESET_URL = "http://localhost:5273/password-reset"
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 

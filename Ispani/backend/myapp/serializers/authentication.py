@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider
+from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider,JobSeeker
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,6 +34,11 @@ class HStudentProfileSerializer(serializers.ModelSerializer):
 class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
+        exclude = ('user',)
+
+class JobSeekerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobSeeker
         exclude = ('user',)
 
 class UserRegistrationSerializer(serializers.Serializer):

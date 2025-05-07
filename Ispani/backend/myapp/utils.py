@@ -2,6 +2,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 import jwt
 import datetime
+from django.contrib.auth.models import Group
 
 
 def create_temp_jwt(payload, expires_in=300):  # 5 minutes default
@@ -89,3 +90,18 @@ def send_booking_confirmation(booking):
         [booking.tutor.email],
         fail_silently=False,
     )
+
+def assign_user_to_dynamic_group(user, role, city, institution=None, qualification=None):
+    if role == "student" and institution and city:
+        group_name = f"Students in {city} at {institution}"
+    elif role == "tutor" and city :
+        group_name = f"Tutors in {city}"
+    elif role == "service provider" and city:
+        group_name = f"Jobseekers in {city}"
+    elif role == "hs student" and city:
+        group_name = f"High School Students in {city}"
+    else:
+        group_name = f"{role.title()}s in {city}" 
+
+    group, _ = Group.objects.get_or_create(name=group_name)
+    user.groups.add(group)  
