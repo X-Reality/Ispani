@@ -1,92 +1,143 @@
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 
 const Signup = () => {
-  const location = useLocation();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
-  const [tempToken, setTempToken] = useState("");
 
-  useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const token = queryParams.get("token");
-    if (token) {
-      setTempToken(token);
-      console.log("Temp Token from URL:", token);
-    }
-  }, [location]);
-  
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!tempToken) {
-      alert("Missing registration token");
-      return;
-    }
-
-    // Save token to sessionStorage for future use
-    sessionStorage.setItem('temp_registration_token', tempToken);
+    setError(null);
+    setLoading(true);
     
-    // Redirect to MultiStepForm (roles) and pass token in query param
-    navigate(`/roles?token=${tempToken}`);
+    try {
+      // Sign up the user
+      const response = await axios.post("http://localhost:8000/auth/signup/", {
+        username,
+        email,
+        password,
+      });
+      
+      
+      
+      if (response.status === 200 || response.status === 201) {
+        // Save data to localStorage
+        localStorage.setItem('signup_email', email);
+        localStorage.setItem('signup_username', username);
+        localStorage.setItem('signup_password', password);
+
+        // Redirect to OTP screen
+        navigate('/otp');
+      } else {
+        throw new Error('Unexpected response from server');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      alert(error.response?.data?.error || error.message || 'Signup failed');
+    } 
   };
 
   return (
     <div className="sign">
       <div className="container">
         <header className="d-flex justify-content-between align-items-center mt-2">
-          <img className="h-4" alt="Logo" src="/assets/logo2.jpg" width="100px" />
+          <img alt="Logo" src="/assets/logo2.jpg" width="100px" />
           <Button variant="outline" className="btn btn-dark">
             <span className="font-weight-semibold text-white">Download</span>
           </Button>
         </header>
+
         <div className="row mt-5">
           <div className="col-md-6">
             <h2>Create an Account</h2>
-            <p>Lorem ipsum dolor sit, amet consectetur adipisicing elit.</p>
+            <p>Join us to access exclusive features and connect with others.</p>
+
+            {error && <div className="alert alert-danger">{error}</div>}
+
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label htmlFor="Name" className="form-label">Name</label>
-                <Input id="Name" name="Name" placeholder="Please add Name" />
+                <label htmlFor="username" className="form-label">Username</label>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
               </div>
+
               <div className="mb-3">
-                <label htmlFor="Email">Email</label>
-                <Input type="email" id="Email" name="Email" placeholder="Please add Email" />
+                <label htmlFor="email" className="form-label">Email</label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
+
               <div className="mb-3">
-                <label htmlFor="Password">Password</label>
-                <Input type="password" id="Password" name="Password" placeholder="Please add Password" />
+                <label htmlFor="password" className="form-label">Password</label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
+
               <div className="form-check mb-3">
-                <input className="form-check-input" type="checkbox" id="invalidCheck" required />
-                <label className="form-check-label" htmlFor="invalidCheck">
+                <input className="form-check-input" type="checkbox" id="termsCheck" required />
+                <label className="form-check-label" htmlFor="termsCheck">
                   Agree to terms and conditions
                 </label>
               </div>
-              <div className="mb-3">
-                <Button variant="outline" className="btn btn-dark" type="submit">
-                  <span className="font-weight-semibold text-white">Sign Up</span>
-                </Button>
-              </div>
+
+              <Button 
+                variant="outline" 
+                className="btn btn-dark" 
+                type="submit" 
+                disabled={loading}
+              >
+                <span className="font-weight-semibold text-white">
+                  {loading ? "Processing..." : "Sign Up"}
+                </span>
+              </Button>
             </form>
 
             <div className="or mt-4 mb-4">
               <span>OR</span>
             </div>
-            <Button variant="outline" className="btn btn-outline-dark mb-3">
-              <span className="font-weight-semibold">Sign Up with google.com</span>
+
+            <Button variant="outline" className="btn btn-outline-dark mb-3" disabled={loading}>
+              <span className="font-weight-semibold">Sign Up with Google</span>
             </Button>
-            <Button variant="outline" className="btn btn-outline-dark mb-5">
-              <span className="font-weight-semibold">Sign Up with linked.com</span>
+            <Button variant="outline" className="btn btn-outline-dark mb-5" disabled={loading}>
+              <span className="font-weight-semibold">Sign Up with LinkedIn</span>
             </Button>
+
             <h6>
               Already have an account?{" "}
-              <a href="/signin" className="signin-link">Sign in</a>
+              <Link to="/login" className="signin-link">Sign in</Link>
             </h6>
           </div>
+
           <div className="col-md-6">
             <div className="box"></div>
-            <img className="h-4" alt="Mockup" src="/assets/Spaniprototypemockup1.png" />
+            <img alt="Mockup" src="/assets/Spaniprototypemockup1.png" className="img-fluid" />
           </div>
         </div>
       </div>

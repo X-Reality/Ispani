@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = [
     HomeTabScreen(),
     MessagesScreen(),
-    Container(), // Placeholder for Explore, handled separately
+    Container(),
     GroupsScreen(),
     ProfileScreen(),
   ];
@@ -127,6 +127,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
       onTap: onTap,
       selectedItemColor: Color.fromARGB(255, 147, 182, 138),
       unselectedItemColor: Colors.grey,
+      backgroundColor: Colors.white,
       items: [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
@@ -204,7 +205,7 @@ class HomeTabScreen extends StatelessWidget {
             ),
             SizedBox(height: 10),
             Column(
-              children: List.generate(4, (index) => _buildCommunityItem()),
+              children: List.generate(1, (index) => _buildCommunityItems()),
             ),
             SizedBox(height: 20),
             Text("Explore",
@@ -217,21 +218,57 @@ class HomeTabScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCommunityItem() {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: AssetImage("assets/Liverpool-logo.jpg"),
-      ),
-      title: Text("weCode", style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text("23K members - Where Code Comes Alive"),
-      trailing: ElevatedButton(
-        onPressed: () {},
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Color.fromARGB(255, 147, 182, 138),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: Text("Join", style: TextStyle(color: Colors.white)),
-      ),
+  Widget _buildCommunityItems() {
+    final communities = [
+      {
+        "name": "weCode",
+        "members": "23K",
+        "description": "Where Code Comes Alive",
+        "image": "assets/wecode.jpg"
+      },
+      {
+        "name": "Flutter Devs",
+        "members": "18K",
+        "description": "Building Apps with Flutter",
+        "image": "assets/flutter.jpg"
+      },
+      {
+        "name": "AI Enthusiasts",
+        "members": "15K",
+        "description": "Exploring the Future of AI",
+        "image": "assets/ai.jpg"
+      },
+      {
+        "name": "UI/UX Creators",
+        "members": "12K",
+        "description": "Designing User Experiences",
+        "image": "assets/uiux.jpg"
+      },
+    ];
+
+    return Column(
+      children: communities.take(4).map((community) {
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: AssetImage(community["image"]!),
+          ),
+          title: Text(
+            community["name"]!,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(
+              "${community["members"]} members - ${community["description"]}"),
+          trailing: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color.fromARGB(255, 147, 182, 138),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text("Join", style: TextStyle(color: Colors.white)),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -257,7 +294,7 @@ class HomeTabScreen extends StatelessWidget {
               if (service == "Book a Tutor") {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => BookTutorScreen()),
+                  MaterialPageRoute(builder: (context) => TutorsScreen()),
                 );
               }
             },

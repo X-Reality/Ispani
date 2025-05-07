@@ -1,11 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from .models import GroupChat, Hobby
 from .models.tutoring import TutorEarning, Review, Booking, Notification
 from .models import (
     CustomUser,
     StudentProfile,
     TutorProfile,
-    Group, Event, EventParticipant, 
+    Event, EventParticipant, 
     EventTag, EventComment, EventMedia,
     ChatRoom,
     ChatMessage,
@@ -118,12 +119,24 @@ class EventMediaAdmin(admin.ModelAdmin):
     ordering = ('-uploaded_at',)
 
 # Existing admin classes (updated with any necessary changes)
-@admin.register(Group)
-class GroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'group_type', 'year_of_study', 'course', 'hobbies', 'admin')
-    search_fields = ('name', 'course', 'hobbies')
-    list_filter = ('group_type', 'year_of_study')
-    raw_id_fields = ('admin', 'members')
+@admin.register(GroupChat)
+class GroupChatAdmin(admin.ModelAdmin):
+    list_display = ('name', 'group_type', 'city', 'institution', 'display_hobbies', 'member_count', 'admin_list', 'created_at')
+    search_fields = ('name', 'city', 'institution', 'hobbies__name')
+    list_filter = ('group_type', 'city', 'institution', 'hobbies')
+
+
+    def display_hobbies(self, obj):
+        return ', '.join([hobby.name for hobby in obj.hobbies.all()])
+    display_hobbies.short_description = 'Hobbies'
+
+    def member_count(self, obj):
+        return obj.members.count()
+    member_count.short_description = 'Total Members'
+
+    def admin_list(self, obj):
+        return ', '.join([admin.username for admin in obj.admins.all()])
+    admin_list.short_description = 'Admins'
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):

@@ -136,7 +136,7 @@ class _OtpScreenState extends State<OtpScreen> {
           // Ensure token is properly encoded in URL
           final encodedToken = Uri.encodeComponent(_tempToken!);
           final reactURL = Uri.parse(
-            'http://localhost:3000/?token=$encodedToken',
+            'http://localhost:3000/roles/?token=$encodedToken',
           );
 
           print('Launching URL: ${reactURL.toString()}');
