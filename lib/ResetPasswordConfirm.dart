@@ -58,7 +58,7 @@ class _ResetPasswordConfirmState extends State<ResetPasswordConfirm> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://127.0.0.1:8000/auth/password-reset-confirm/"),
+        Uri.parse("http://127.0.0.1:8000/auth/reset-password/"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "uid": widget.uid,

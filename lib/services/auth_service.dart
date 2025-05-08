@@ -1,48 +1,62 @@
 // lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 class AuthService {
   static const String baseUrl = 'http://127.0.0.1:8000/';
+  static final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
-  // Store tokens in shared preferences
+  // Store tokens
   static Future<void> _saveTokens(
       String accessToken, String refreshToken) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('access_token', accessToken);
-    await prefs.setString('refresh_token', refreshToken);
+    await _secureStorage.write(key: 'access_token', value: accessToken);
+    await _secureStorage.write(key: 'refresh_token', value: refreshToken);
   }
 
-  // Get access token
   static Future<String?> getAccessToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('access_token');
+    return await _secureStorage.read(key: 'access_token');
   }
 
-  // Get refresh token
   static Future<String?> getRefreshToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('refresh_token');
+    return await _secureStorage.read(key: 'refresh_token');
   }
 
-  // Clear tokens (logout)
   static Future<void> clearTokens() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('access_token');
-    await prefs.remove('refresh_token');
+    await _secureStorage.delete(key: 'access_token');
+    await _secureStorage.delete(key: 'refresh_token');
+  }
+
+  static Future<bool> refreshTokenIfNeeded() async {
+    final refreshToken = await getRefreshToken();
+
+    if (refreshToken == null) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/token/refresh/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh': refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        await _saveTokens(data['access'], refreshToken);
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   // Save user data
   static Future<void> saveUserData(Map<String, dynamic> userData) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_data', jsonEncode(userData));
+    await _secureStorage.write(key: 'user_data', value: jsonEncode(userData));
   }
 
   // Get user data
   static Future<Map<String, dynamic>?> getUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userData = prefs.getString('user_data');
+    final userData = await _secureStorage.read(key: 'user_data');
     if (userData != null) {
       return jsonDecode(userData) as Map<String, dynamic>;
     }
@@ -225,11 +239,25 @@ class AuthService {
     }
   }
 
+  static Future<bool> isAccessTokenExpired() async {
+    final token = await getAccessToken();
+    if (token == null) return true;
+    return JwtDecoder.isExpired(token);
+  }
+
+  static Future<bool> isLoggedIn() async {
+    final token = await getAccessToken();
+    if (token == null || JwtDecoder.isExpired(token)) {
+      return await refreshTokenIfNeeded();
+    }
+    return true;
+  }
+
   // Forgot Password: Request reset
   static Future<Map<String, dynamic>> requestPasswordReset(String email) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/password-reset-request/'),
+        Uri.parse('$baseUrl/auth/forgot-password/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
@@ -263,7 +291,7 @@ class AuthService {
       String uid, String token, String newPassword) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/password-reset-confirm/'),
+        Uri.parse('$baseUrl/auth/reset-password/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'uid': uid,

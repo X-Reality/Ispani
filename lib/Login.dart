@@ -4,7 +4,7 @@ import 'package:ispani/HomeScreen.dart';
 import 'package:ispani/SignUp.dart';
 import 'package:ispani/TutorHomeScreen.dart';
 import 'package:ispani/services/auth_service.dart';
-import 'package:url_launcher/url_launcher.dart'; // Import the auth service
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(const MaterialApp(

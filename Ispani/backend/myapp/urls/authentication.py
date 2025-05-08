@@ -1,8 +1,5 @@
 from django.urls import path
-
-from ..views.authentication import CompleteRegistrationView, LoginView, LogoutView, SignUpView, VerifyOTPView,PasswordResetRequestView,PasswordResetConfirmView
-
-
+from ..views.authentication import CompleteRegistrationView, LoginView, LogoutView, SignUpView, VerifyOTPView,ForgotPasswordView,ResetPasswordView,DeleteAccountView,SwitchRoleView
 
 urlpatterns = [
     # Authentication URLs
@@ -11,7 +8,8 @@ urlpatterns = [
     path('complete-registration/', CompleteRegistrationView.as_view(), name='complete-registration'),
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
-    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
-
+    path("switch-role/", SwitchRoleView.as_view(), name="switch-role"),
+    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
+    path('account/delete/', DeleteAccountView.as_view(), name='account-delete'),
 ]

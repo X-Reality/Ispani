@@ -9,10 +9,11 @@ const MultiStepForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { token, remainingRoles = [], role } = location.state || {};
+  const { token, remainingRoles = []} = location.state || {};
   const [roles, setRoles] = useState(remainingRoles);
   const [authToken, setAuthToken] = useState(token);
   const [formError, setFormError] = useState("");
+  const [role, setRole] = useState("tutor");
 
   const [formData, setFormData] = useState({
     city: "",
