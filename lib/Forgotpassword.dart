@@ -9,6 +9,8 @@ void main() {
   ));
 }
 
+const String baseUrl = "http://yourbackend.com";
+
 class Forgotpassword extends StatefulWidget {
   const Forgotpassword({super.key});
 
@@ -32,7 +34,7 @@ class _ForgotpasswordState extends State<Forgotpassword> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://127.0.0.1:8000/auth/password-reset/"),
+        Uri.parse("http://127.0.0.1:8000/auth/forgot-password/"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"email": email}),
       );

@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = [
     HomeTabScreen(),
     MessagesScreen(),
-    Container(),
+    Container(), // Placeholder for Explore, handled separately
     GroupsScreen(),
     ProfileScreen(),
   ];

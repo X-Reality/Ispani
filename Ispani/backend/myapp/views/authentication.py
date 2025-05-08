@@ -4,9 +4,10 @@ import stripe
 
 from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
+from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode
 from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
+from django.utils.encoding import force_str
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 
@@ -125,7 +126,7 @@ class CompleteRegistrationView(APIView):
             if not roles:
                 return Response({"error": "Missing roles"}, status=status.HTTP_400_BAD_REQUEST)
 
-            valid_roles = ['student', 'tutor', 'hs student', 'service provider']
+            valid_roles = ['student', 'tutor', 'hs student', 'service provider','jobseeker']
             invalid_roles = [role for role in roles if role not in valid_roles]
             
             if invalid_roles:
@@ -157,11 +158,12 @@ class CompleteRegistrationView(APIView):
                 elif role == 'tutor':
                     TutorProfile.objects.create(
                         user=user,
-                        about=request.data.get('about', ''),
+                        place=request.data.get('place', ''),
                         city=request.data.get('city', ''),
                         phone_number=request.data.get('phone_number', ''),
                         hourly_rate=request.data.get('hourly_rate', 0),
-                        qualification=request.data.get('qualification', '')
+                        cv = request.FILES.get('cv')
+
                     )
                     assign_user_to_dynamic_group(user, role, city)
 
@@ -250,60 +252,53 @@ class LoginView(APIView):
             pass
 
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
-
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        logout(request)
-        return Response({"message": "Logout successful. Please delete the token on the client side."})
-
-class PasswordResetRequestView(APIView):
-    def post(self, request):
-        email = request.data.get('email')
-
+        email = request.data.get("email")
         if not email:
-            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = CustomUser.objects.get(email=email)
         except CustomUser.DoesNotExist:
-            return Response({"message": "If an account with that email exists, we've sent a reset link."}, status=status.HTTP_200_OK)
+            return Response({"error": "No user found with this email."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Generate token and uid
+        # Generate UID and token
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
-        # Build reset link
-        reset_link = f"{settings.FRONTEND_RESET_URL}?uid={uid}&token={token}"
+        # Construct frontend URL
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
 
-        # Send the email
+        # Send the reset email
         send_mail(
-            subject='Reset your password',
-            message=f"Click the link to reset your password: {reset_link}",
+            subject="Reset Your Password",
+            message=f"Click the link below to reset your password:\n{reset_url}",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
-            fail_silently=False,
         )
 
-        return Response({"message": "If an account with that email exists, we've sent a reset link."}, status=status.HTTP_200_OK)
+        return Response({"message": "Password reset link sent to your email."}, status=status.HTTP_200_OK)
 
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
 
-class PasswordResetConfirmView(APIView):
     def post(self, request):
-        uidb64 = request.data.get('uid')
-        token = request.data.get('token')
-        new_password = request.data.get('new_password')
+        uidb64 = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
 
         if not uidb64 or not token or not new_password:
-            return Response({"error": "All fields (uid, token, new_password) are required."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "All fields are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            uid = urlsafe_base64_decode(uidb64).decode()
+            uid = force_str(urlsafe_base64_decode(uidb64))
             user = CustomUser.objects.get(pk=uid)
-        except (CustomUser.DoesNotExist, ValueError, TypeError, OverflowError):
-            return Response({"error": "Invalid user ID."}, status=status.HTTP_400_BAD_REQUEST)
+        except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
+            return Response({"error": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not default_token_generator.check_token(user, token):
             return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
@@ -312,10 +307,103 @@ class PasswordResetConfirmView(APIView):
         user.save()
 
         return Response({"message": "Password has been reset successfully."}, status=status.HTTP_200_OK)
-    
-class UserDetailView(APIView):
+
+
+class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data) 
+    def post(self, request):
+        logout(request)
+        return Response({"message": "Logout successful. Please delete the token on the client side."})
+    
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+
+        try:
+            # Delete related profiles if they exist
+            StudentProfile.objects.filter(user=user).delete()
+            TutorProfile.objects.filter(user=user).delete()
+            HStudents.objects.filter(user=user).delete()
+            ServiceProvider.objects.filter(user=user).delete()
+
+            # cancel any future Stripe subscriptions or bookings here
+            if user.stripe_customer_id:
+                try:
+                    # Cancel all subscriptions for the customer
+                    subscriptions = stripe.Subscription.list(customer=user.stripe_customer_id)
+                    for subscription in subscriptions.auto_paging_iter():
+                        stripe.Subscription.delete(subscription.id)
+                    
+                    # delete the customer
+                    stripe.Customer.delete(user.stripe_customer_id)
+                except Exception as e:
+                    print("Stripe cleanup error:", e)
+                        
+            user.delete()
+
+            return Response({"message": "Account deleted successfully."}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": f"Failed to delete account: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SwitchRoleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        new_role = request.data.get("role")
+
+        if not new_role:
+            return Response(
+                {"error": "No role provided. Please specify the role to switch to."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+
+        # Check which roles this user actually has
+        user_roles = []
+
+        if hasattr(user, 'studentprofile'):
+            user_roles.append('student')
+        if hasattr(user, 'tutorprofile'):
+            user_roles.append('tutor')
+        if hasattr(user, 'hstudents'):
+            user_roles.append('jobseeker')
+        if hasattr(user, 'serviceprovider'):
+            user_roles.append('service_provider')
+
+        # If the user has only one role, don't allow switching
+        if len(user_roles) <= 1:
+            return Response(
+                {"error": "User only has one role. Cannot switch roles."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # If the requested role is not among the user's roles, deny it
+        if new_role not in user_roles:
+            return Response(
+                {
+                    "error": f"You do not have the role '{new_role}'.",
+                    "available_roles": user_roles,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Optionally: store role in session 
+        request.session["active_role"] = new_role
+
+        # Or just return the active role in the response
+        return Response(
+            {
+                "message": f"Switched to role '{new_role}' successfully.",
+                "active_role": new_role,
+                "available_roles": user_roles,
+            },
+            status=status.HTTP_200_OK,
+        )
+    

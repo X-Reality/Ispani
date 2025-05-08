@@ -20,26 +20,46 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
         exclude = ('user',)
+        extra_kwargs = {
+            'profile_picture': {'required': False},
+            'bio': {'required': False},
+        }
 
 class TutorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TutorProfile
         exclude = ('user',)
+        extra_kwargs = {
+            'profile_picture': {'required': False},
+            'bio': {'required': False},
+        }
 
 class HStudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = HStudents
         exclude = ('user',)
+        extra_kwargs = {
+            'profile_picture': {'required': False},
+            'bio': {'required': False},
+        }
 
 class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         exclude = ('user',)
+        extra_kwargs = {
+            'profile_picture': {'required': False},
+            'bio': {'required': False},
+        }
 
 class JobSeekerSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobSeeker
         exclude = ('user',)
+        extra_kwargs = {
+            'profile_picture': {'required': False},
+            'bio': {'required': False},
+        }
 
 class UserRegistrationSerializer(serializers.Serializer):
     role = serializers.CharField(required=True)

@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.response import Response
 from rest_framework import status,generics
 
@@ -7,7 +7,7 @@ from ..models.groups import GroupChat
 from ..serializers import GroupChatSerializer,GroupCreateSerializer
 
 class CreateGroupView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         name = request.data.get("name")
@@ -41,7 +41,7 @@ class GroupListCreate(generics.ListCreateAPIView):
         serializer.save(admin=self.request.user)
 
 class JoinGroupView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request, group_id):
         try:
@@ -52,7 +52,7 @@ class JoinGroupView(APIView):
             return Response({"error": "Group not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class LeaveGroupView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request, group_id):
         try:
@@ -63,7 +63,7 @@ class LeaveGroupView(APIView):
             return Response({"error": "Group not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class InstitutionGroupsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         institution = getattr(request.user.studentprofile, 'institution', None)
@@ -74,7 +74,7 @@ class InstitutionGroupsView(APIView):
         return Response(GroupChatSerializer(groups, many=True).data)
 
 class CityHobbyGroupsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         profile = request.user.studentprofile if hasattr(request.user, 'studentprofile') else None
@@ -88,33 +88,60 @@ class CityHobbyGroupsView(APIView):
         return Response(GroupChatSerializer(groups, many=True).data)
     
 class GroupSuggestionsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        # Get the user's profile and hobbies/interests
-        profile = request.user.studentprofile if hasattr(request.user, 'studentprofile') else None
+        profile = getattr(request.user, 'studentprofile', None)
         if not profile:
             return Response({"error": "No profile found for user."}, status=status.HTTP_400_BAD_REQUEST)
 
         user_hobbies = profile.hobbies.all()
-
         if not user_hobbies:
             return Response({"error": "No hobbies linked to your profile."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch all groups that the user is not a member of
         user_groups = request.user.groupchat_set.all()
-        all_groups = GroupChat.objects.exclude(id__in=[group.id for group in user_groups])
+        all_groups = GroupChat.objects.exclude(id__in=user_groups.values_list("id", flat=True))
 
-        # Calculate the similarity score for each group based on common hobbies
-        group_scores = []
+        suggestions = []
+
         for group in all_groups:
-            common_hobbies = set(group.hobbies.all()) & set(user_hobbies)
-            score = len(common_hobbies)
-            group_scores.append((group, score))
+            score = 0
+            group_hobbies = set(group.hobbies.all())
+            common_hobbies = set(user_hobbies) & group_hobbies
+            score += len(common_hobbies)
 
-        # Sort groups by score (descending order)
-        group_scores.sort(key=lambda x: x[1], reverse=True)
+            if group.city == profile.city:
+                score += 2  # city match is weighted more
 
-        # Serialize and return the top suggestions
-        suggested_groups = [group for group, score in group_scores if score > 0]
-        return Response(GroupChatSerializer(suggested_groups, many=True).data, status=status.HTTP_200_OK)
+            if group.institution == profile.institution:
+                score += 2  # institution match is also weighted more
+
+            score += group.members.count() * 0.05  # small boost for popularity
+
+            if score > 0:
+                suggestions.append((group, score))
+
+        # Sort by descending score
+        suggestions.sort(key=lambda x: x[1], reverse=True)
+
+        # Limit results to top 10
+        top_groups = [group for group, score in suggestions[:10]]
+        serialized = GroupChatSerializer(top_groups, many=True)
+        return Response(serialized.data, status=status.HTTP_200_OK)
+    
+class JoinedGroupsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user_groups = request.user.groups_joined.all()
+        serializer = GroupChatSerializer(user_groups, many=True)
+        return Response(serializer.data)
+
+class JoinableGroupsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        joinable = GroupChat.objects.exclude(members=request.user)
+        serializer = GroupChatSerializer(joinable, many=True)
+        return Response(serializer.data)
+

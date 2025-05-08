@@ -15,15 +15,24 @@ ROLE_CHOICES = (
 class CustomUser(AbstractUser):
     roles = models.JSONField(default=list) 
     email = models.EmailField(unique=True)
+    active_role = models.CharField(max_length=30, blank=True, null=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     username = models.CharField(max_length=150, unique=True)
-
-
+    
     REQUIRED_FIELDS = ['email']
     
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+
+    def has_student_profile(self):
+        return hasattr(self, 'studentprofile')
+
+    def has_tutor_profile(self):
+        return hasattr(self, 'tutorprofile')
+
+    def has_jobseeker_profile(self):
+        return hasattr(self, 'jobseeker')
 
     def __str__(self):
         return self.username
@@ -39,6 +48,8 @@ class StudentProfile(models.Model):
     course = models.CharField(max_length=100, null=True, blank=True)
     hobbies = models.TextField(null=True, blank=True)
     qualification = models.TextField(null=True, blank=True)
+    bio = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     institution = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
@@ -55,6 +66,8 @@ class HStudents(models.Model):
     schoolName = models.CharField(max_length=100, null=True, blank=True)
     studyLevel = models.CharField(max_length=100, null=True, blank=True)
     subjects = models.TextField(null=True, blank=True)
+    bio = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     
     def __str__(self):
         return f"HStudents Profile: {self.user.username}"
@@ -62,11 +75,13 @@ class HStudents(models.Model):
 
 class TutorProfile(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='tutor_profile')
-    about = models.CharField(max_length=100, null=True, blank=True)
+    place = models.CharField(max_length=100, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.IntegerField()
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2)
-    qualifications = models.TextField()
+    cv = models.FileField(upload_to='profile_pics/', blank=True, null=True)
+    bio = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     calendly_id = models.CharField(max_length=255, null=True, blank=True)
     
     def __str__(self):
@@ -80,6 +95,8 @@ class ServiceProvider(models.Model):
      usageType = models.TextField()
      sectors = models.TextField()
      hobbies= models.TextField()
+     bio = models.TextField(blank=True, null=True)
+     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
      serviceNeeds=models.TextField()
 
      def __str__(self):
@@ -87,13 +104,16 @@ class ServiceProvider(models.Model):
      
 class JobSeeker(models.Model):
 
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='student_profile',unique=True)
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='jobseeker_profile',unique=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     cellnumber = models.IntegerField(null=True, blank=True)
     status = models.TextField(null=True, blank=True)
     usage = models.TextField(null=True, blank=True)
     hobbies= models.TextField()
+    bio = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
 
 
     def __str__(self):
         return f"JobSeeker Profile: {self.user.username}"
+    
