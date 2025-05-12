@@ -3,6 +3,7 @@ import 'package:ispani/GroupsScreen.dart';
 import 'package:ispani/MessagesScreen.dart';
 import 'package:ispani/ProfileScreen.dart';
 import 'package:ispani/TutoringScreen.dart';
+import 'package:ispani/De-registration.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -176,12 +177,74 @@ class HomeTabScreen extends StatelessWidget {
               ),
             ),
             SizedBox(width: 10),
-            CircleAvatar(
-              backgroundImage: AssetImage("assets/images (1).jpeg"),
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: PopupMenuButton<String>(
+                offset: Offset(0, 50), // 👈 pushes menu downward under profile pic
+                color: Colors.white,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'business':
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => DeregistrationScreen()),
+                      );
+                      break;
+                    case 'settings':
+                    // Navigate to account settings screen
+                      break;
+                    case 'logout':
+                    // Handle logout
+                      break;
+                  }
+                },
+                icon: CircleAvatar(
+                  backgroundImage: AssetImage('assets/images (1).jpeg'),
+                  radius: 18,
+                ),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'business',
+                    child: Row(
+                      children: [
+                        Icon(Icons.business, color: Color(0xFF2E7D32)),
+                        SizedBox(width: 10),
+                        Text("Sign in as Business"),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'settings',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings, color: Color(0xFF2E7D32)),
+                        SizedBox(width: 10),
+                        Text("Account Settings"),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, color: Color(0xFF2E7D32)),
+                        SizedBox(width: 10),
+                        Text("Logout"),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
+
+
+          ]
+    ),
+    ),
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 16),
         child: Column(
