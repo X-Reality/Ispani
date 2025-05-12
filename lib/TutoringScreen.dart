@@ -1,18 +1,77 @@
 import 'package:flutter/material.dart';
 import 'TutoringProfileScreen.dart';
 
-class TutorsScreen extends StatelessWidget {
+class TutorsScreen extends StatefulWidget {
   const TutorsScreen({super.key});
 
   @override
+  State<TutorsScreen> createState() => _TutorsScreenState();
+}
+
+class _TutorsScreenState extends State<TutorsScreen> {
+  final List<String> categories = [
+    "All", "Design", "Coding", "Mobile", "Web", "Flutter", "JavaScript", "React", "Dart"
+  ];
+
+  int selectedCategoryIndex = 0;
+
+  final List<Map<String, dynamic>> allTutors = [
+    {
+      'name': 'Khanyisile Jackson',
+      'subject': 'Intro to Drone Tech',
+      'tags': ['Design', 'HTML', 'CSS', 'React'],
+      'students': 37,
+      'reviews': 38,
+      'hours': 200,
+      'description': 'Expert in frontend web development.',
+      'avatar': 'assets/backgroung.jpg'
+    },
+    {
+      'name': 'Richard Nelson',
+      'subject': 'Mobile App Development',
+      'tags': ['Flutter', 'Dart', 'Mobile'],
+      'students': 37,
+      'reviews': 20,
+      'hours': 200,
+      'description': '',
+      'avatar': 'assets/backgroung.jpg'
+    },
+    {
+      'name': 'Linda Mokoena',
+      'subject': 'JavaScript Essentials',
+      'tags': ['JavaScript', 'Web', 'React'],
+      'students': 22,
+      'reviews': 15,
+      'hours': 150,
+      'description': 'Build interactive web apps.',
+      'avatar': 'assets/backgroung.jpg'
+    },
+    {
+      'name': 'Thabiso Lekota',
+      'subject': 'UI/UX Design Principles',
+      'tags': ['Design', 'UI/UX'],
+      'students': 18,
+      'reviews': 25,
+      'hours': 120,
+      'description': 'Learn user-first design.',
+      'avatar': 'assets/backgroung.jpg'
+    },
+  ];
+
+  @override
   Widget build(BuildContext context) {
+    final String selectedCategory = categories[selectedCategoryIndex];
+    final List<Map<String, dynamic>> filteredTutors = selectedCategory == 'All'
+        ? allTutors
+        : allTutors.where((tutor) => tutor['tags'].contains(selectedCategory)).toList();
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('Tutors'),
+        title: const Text('Tutors', style: TextStyle(color: Colors.black)),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert, color: Colors.black)),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -31,14 +90,13 @@ class TutorsScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _buildCategoryFilters(),
           const SizedBox(height: 10),
-          Expanded(child: _buildTutorList(context)), // Pass context here
+          Expanded(child: _buildTutorList(filteredTutors)),
         ],
       ),
     );
   }
 
   Widget _buildCategoryFilters() {
-    final categories = ["All", "Design", "Coding", "Mobile", "Web", "Flutter", "JavaScript", "React", "Dart"];
     return SizedBox(
       height: 60,
       child: ListView.separated(
@@ -47,77 +105,33 @@ class TutorsScreen extends StatelessWidget {
         itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
-          final selected = index == 0;
-          return Container(
-            height: 50,
-            child: ChoiceChip(
-              label: Text(categories[index]),
-              selected: selected,
-              selectedColor: Colors.green[200],
-              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
-              backgroundColor: Colors.grey[200],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(26),
-              ),
-              onSelected: (_) {},
-            ),
+          final isSelected = selectedCategoryIndex == index;
+          return ChoiceChip(
+            label: Text(categories[index]),
+            selected: isSelected,
+            selectedColor: Colors.green[200],
+            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+            backgroundColor: Colors.grey[200],
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+            onSelected: (_) {
+              setState(() {
+                selectedCategoryIndex = index;
+              });
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildTutorList(BuildContext context) {
-    final tutors = [
-      {
-        'name': 'Khanyisile Jackson',
-        'subject': 'Intro to Drone Tech',
-        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
-        'students': 37,
-        'reviews': 38,
-        'hours': 200,
-        'description': 'The filter elements at the top must (All, Design, Coding, etc.) be horizontally scrollable and include keywords for mobile/web dev.',
-        'avatar': 'assets/backgroung.jpg'
-      },
-      {
-        'name': 'Richard Nelson',
-        'subject': 'Intro to Drone Tech',
-        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
-        'students': 37,
-        'reviews': 20,
-        'hours': 200,
-        'description': '',
-        'avatar': 'assets/backgroung.jpg'
-      },
-      {
-        'name': 'Richard Nelson',
-        'subject': 'Intro to Drone Tech',
-        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
-        'students': 37,
-        'reviews': 20,
-        'hours': 200,
-        'description': '',
-        'avatar': 'assets/backgroung.jpg'
-      },
-      {
-        'name': 'Richard Nelson',
-        'subject': 'Intro to Drone Tech',
-        'tags': ['#HTML', '#CSS', '#JAVA', '#React'],
-        'students': 37,
-        'reviews': 20,
-        'hours': 200,
-        'description': '',
-        'avatar': 'assets/backgroung.jpg'
-      },
-    ];
-
+  Widget _buildTutorList(List<Map<String, dynamic>> tutors) {
     return ListView.builder(
       itemCount: tutors.length,
       itemBuilder: (context, index) {
         final tutor = tutors[index];
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: _tutorCard(context, tutor), // Pass context here
+          child: _tutorCard(context, tutor),
         );
       },
     );
@@ -198,7 +212,7 @@ class TutorsScreen extends StatelessWidget {
                   tutor['tags'].length,
                       (index) => Chip(
                     label: Text(
-                      tutor['tags'][index],
+                      '#${tutor['tags'][index]}',
                       style: const TextStyle(fontSize: 10),
                     ),
                     backgroundColor: Colors.grey[200],
