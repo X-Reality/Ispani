@@ -19,7 +19,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from myapp.utils import assign_user_to_dynamic_group, create_temp_jwt
 
-from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider
+from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, ServiceProvider,JobSeeker
 from ..serializers import UserSerializer, UserRegistrationSerializer
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -117,9 +117,7 @@ class CompleteRegistrationView(APIView):
             password = request.data.get('password') or temp_data.get('password')
 
             if CustomUser.objects.filter(email=email).exists():
-                user = CustomUser.objects.get(email=email)
-            else:
-                user = CustomUser.objects.create_user(email=email, username=username, password=password)
+                return Response({'error': 'Email already registered.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Get roles as a list (could be multiple roles selected)
             roles = request.data.get("roles", [])
@@ -132,8 +130,7 @@ class CompleteRegistrationView(APIView):
             if invalid_roles:
                 return Response({"error": f"Invalid roles: {', '.join(invalid_roles)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Assign roles to the user (store multiple roles)
-            user.role = roles  # Assign multiple roles to the user (store as list)
+            user = CustomUser.objects.create_user(email=email, username=username, password=password,roles=roles)
             user.save()
 
             # Create profiles based on the selected roles
@@ -173,7 +170,7 @@ class CompleteRegistrationView(APIView):
                         schoolName=request.data.get('schoolName', ''),
                         studyLevel=request.data.get('studyLevel', ''),
                         city=request.data.get('city', ''),
-                        subjects=request.data.get(' subjects', []),
+                        subjects=request.data.get('subjects', []),
                         hobbies=request.data.get('hobbies', [])
                     )                        
                     assign_user_to_dynamic_group(user, role, city)
@@ -192,7 +189,7 @@ class CompleteRegistrationView(APIView):
                     assign_user_to_dynamic_group(user, role, city)
 
                 elif role == 'jobseeker':
-                    ServiceProvider.objects.create(
+                    JobSeeker.objects.create(
                         user=user,
                         cellnumber=request.data.get('cellnumber', ''),
                         status=request.data.get('status',  []),
@@ -214,6 +211,8 @@ class CompleteRegistrationView(APIView):
                     "access": str(refresh.access_token),
                 }
             }, status=status.HTTP_200_OK)
+        
+
 
         except Exception as e:
             import traceback
@@ -242,6 +241,7 @@ class LoginView(APIView):
                 return Response({
                     "message": "Login successful",
                     "user": UserSerializer(authenticated_user).data,
+                    "role": user.roles,
                     "token": {
                         "refresh": str(refresh),
                         "access": str(refresh.access_token),
@@ -271,7 +271,8 @@ class ForgotPasswordView(APIView):
         token = default_token_generator.make_token(user)
 
         # Construct frontend URL
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
+        reset_url = f"{getattr(settings, 'FRONTEND_URL', 'http://127.0.0.1:65443/')}/reset-password?uid={uid}&token={token}"
+
 
         # Send the reset email
         send_mail(
