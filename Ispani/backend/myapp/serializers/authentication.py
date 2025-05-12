@@ -4,15 +4,22 @@ from ..models import CustomUser, StudentProfile, TutorProfile, HStudents, Servic
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'password', 'roles')
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = ('id', 'username', 'email', 'password', 'roles', 'active_role', 'city')
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'roles': {'required': False},
+            'active_role': {'required': False},
+            'city': {'required': False},
+        }
 
+        
     def create(self, validated_data):
+        # Create a new user with a hashed password
         user = CustomUser.objects.create_user(
             username=validated_data['username'],
-            email=validated_data['email'],
+            email=validated_data.get('email'), 
             password=validated_data['password'],
-            roles=validated_data.get('roles', 'student')
+            roles=validated_data.get['roles'],
         )
         return user
 

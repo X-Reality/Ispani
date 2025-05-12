@@ -1,30 +1,26 @@
 from datetime import timedelta
 from pathlib import Path
 from django.conf import settings
-from decouple import config
-from django.conf.urls.static import static
 import os
- 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+import environ
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^(7*$%x_168p%s$fxq5tpfn3h-!6w9f4il8+6=l0x-g&temr$*'
+env = environ.Env()
+environ.Env.read_env()  # Reads from your .env file
 
-#Calendly API
+SECRET_KEY = env('SECRET_KEY')
+DEBUG = env.bool('DEBUG', default=False)
+CALENDLY_API_KEY = env('CALENDLY_API_KEY')
+#STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')
 
-CALENDLY_TOKEN = 'eyJraWQiOiIxY2UxZTEzNjE3ZGNmNzY2YjNjZWJjY2Y4ZGM1YmFmYThhNjVlNjg0MDIzZjdjMzJiZTgzNDliMjM4MDEzNWI0IiwidHlwIjoiUEFUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJodHRwczovL2F1dGguY2FsZW5kbHkuY29tIiwiaWF0IjoxNzQzOTYyOTI1LCJqdGkiOiIwYTk4YjRhYS00ZGRmLTRhZDUtYjk3MC1jZmNjODU1YmI2YjMiLCJ1c2VyX3V1aWQiOiI4NzYyNDIzNy0xMzE2LTRhNTktYjUyOC02MmM0MDU1Yjg2MjMifQ.AhyI6-LZiRXJTsg7hi2wOrP0ckqvgBPuEL06rbRk2a51aWmT4rtC48pPVzlgiNWaQfAgtKycBb-w6K4ycpjrpw'
-SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', cast=bool)
-CALENDLY_API_KEY = config('CALENDLY_API_KEY')
+
+
+
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
 
-FRONTEND_RESET_URL = "http://localhost:5273/password-reset"
+FRONTEND_URL = "http://127.0.0.1:65443"
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -46,7 +42,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'channels',
     'corsheaders',
-     'rest_framework.authtoken',
+    'rest_framework.authtoken',
     'rest_framework_simplejwt', 
 
     # Third-party apps
