@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ispani/GroupsScreen.dart';
 import 'package:ispani/MessagesScreen.dart';
 import 'package:ispani/ProfileScreen.dart';
+import 'package:ispani/SettingScreen.dart';
 import 'package:ispani/TutoringScreen.dart';
 import 'package:ispani/De-registration.dart';
 
@@ -195,7 +196,10 @@ class HomeTabScreen extends StatelessWidget {
                       );
                       break;
                     case 'settings':
-                    // Navigate to account settings screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => SettingsScreen()),
+                      );
                       break;
                     case 'logout':
                     // Handle logout
@@ -223,7 +227,7 @@ class HomeTabScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.settings, color: Color(0xFF2E7D32)),
                         SizedBox(width: 10),
-                        Text("Account Settings"),
+                        Text("Settings"),
                       ],
                     ),
                   ),

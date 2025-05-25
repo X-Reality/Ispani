@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ispani/TutorHomeScreen.dart';
 import 'TutoringProfileScreen.dart';
+import 'package:ispani/GroupsScreen.dart';
+import 'package:ispani/MessagesScreen.dart';
+import 'package:ispani/ProfileScreen.dart';
 
 class TutorsScreen extends StatefulWidget {
   const TutorsScreen({super.key});
@@ -14,6 +18,15 @@ class _TutorsScreenState extends State<TutorsScreen> {
   ];
 
   int selectedCategoryIndex = 0;
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    TutorHomeScreen(),
+    MessagesScreen(),
+    Container(), // Explore
+    GroupsScreen(),
+    ProfileScreen(),
+  ];
 
   final List<Map<String, dynamic>> allTutors = [
     {
@@ -58,6 +71,76 @@ class _TutorsScreenState extends State<TutorsScreen> {
     },
   ];
 
+  void _onTabSelected(int index) {
+    if (index == 2) {
+      _showBottomDrawer();
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
+  void _showBottomDrawer() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return FractionallySizedBox(
+          heightFactor: 0.5,
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 10),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Explore More",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.trending_up),
+                      title: const Text("Trending"),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.new_releases),
+                      title: const Text("Latest"),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.category),
+                      title: const Text("Categories"),
+                      onTap: () {},
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.people),
+                      title: const Text("Communities"),
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String selectedCategory = categories[selectedCategoryIndex];
@@ -74,17 +157,6 @@ class _TutorsScreenState extends State<TutorsScreen> {
           IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert, color: Colors.black)),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.school), label: "Tutoring"),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: "Message"),
-          BottomNavigationBarItem(icon: Icon(Icons.group), label: "Groups"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-      ),
       body: Column(
         children: [
           const SizedBox(height: 10),
@@ -92,6 +164,10 @@ class _TutorsScreenState extends State<TutorsScreen> {
           const SizedBox(height: 10),
           Expanded(child: _buildTutorList(filteredTutors)),
         ],
+      ),
+      bottomNavigationBar: CustomBottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onTabSelected,
       ),
     );
   }
@@ -237,7 +313,9 @@ class _TutorsScreenState extends State<TutorsScreen> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => TutorProfileScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => TutorProfileScreen(tutor: Tutor(name: "name", subject: "", bio: "bio"),),
+                          ),
                         );
                       },
                       child: const Text(
@@ -264,6 +342,46 @@ class _TutorsScreenState extends State<TutorsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class CustomBottomNavigationBar extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTap;
+
+  const CustomBottomNavigationBar({
+    required this.currentIndex,
+    required this.onTap,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      currentIndex: currentIndex,
+      onTap: onTap,
+      selectedItemColor: const Color.fromARGB(255, 147, 182, 138),
+      unselectedItemColor: Colors.grey,
+      backgroundColor: Colors.white,
+      items: [
+        const BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+        const BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
+        BottomNavigationBarItem(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color.fromARGB(255, 147, 182, 138),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.explore, color: Colors.white),
+          ),
+          label: "",
+        ),
+        const BottomNavigationBarItem(icon: Icon(Icons.supervised_user_circle), label: "Groups"),
+        const BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+      ],
     );
   }
 }

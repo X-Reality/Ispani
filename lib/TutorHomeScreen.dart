@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:ispani/SettingScreen.dart';
+import 'package:ispani/StudentBookingScreen.dart';
+import 'package:ispani/UpcomingClasseScreen.dart';
 import 'RescheduleScreen.dart';
 import 'De-registration.dart';
 
@@ -233,7 +236,10 @@ class _TutorHomeScreenState extends State<TutorHomeScreen> with SingleTickerProv
             );
             break;
             case 'settings':
-            // Navigate to account settings screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SettingsScreen()),
+                );
             break;
             case 'logout':
             // Handle logout
@@ -333,7 +339,15 @@ class _TutorHomeScreenState extends State<TutorHomeScreen> with SingleTickerProv
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text("Today's Bookings", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-                Text("View all", style: TextStyle(fontSize: 17, color: actionColor)),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => StudentBookingCalendarScreen() ),
+                    );
+                  },
+                  child: Text('View All'),
+                ),
               ],
             ),
             SizedBox(height: 16),
@@ -397,7 +411,16 @@ class _TutorHomeScreenState extends State<TutorHomeScreen> with SingleTickerProv
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text("Upcoming classes", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-                Text("View all", style: TextStyle(fontSize: 17, color: actionColor)),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => UpcomingClassesScreen()),
+                    );
+                  },
+                  child: Text('View All'),
+                )
+
               ],
             ),
             SizedBox(height: 12),
@@ -455,40 +478,95 @@ class _TutorHomeScreenState extends State<TutorHomeScreen> with SingleTickerProv
                         Text("Today's Bookings", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
                         // Define the state for the dropdown value
 
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white, // White background
-                            borderRadius: BorderRadius.circular(30.0), // Rounded corners
-                            border: Border.all(
-                              color: Colors.green, // Green border
-                              width: 1.0, // Border width
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12.0),
+                          child: PopupMenuButton<String>(
+                            offset: Offset(0, 40), // Adjust vertical offset so menu appears just below the button
+                            color: Colors.white,
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ),
-                          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.01), // Reduced top and bottom padding
-                          child: DropdownButton<String>(
-                            value: dropdownValue,
-                            onChanged: (String? value) {
-                              setState(() {
-                                dropdownValue = value ?? "Sort"; // Update the dropdown value on selection change
-                              });
+                            onSelected: (value) {
+                              switch (value) {
+                                case 'business':
+
+                                  break;
+                                case 'settings':
+
+                                  break;
+                                case 'logout':
+                                // Handle logout
+                                  break;
+                              }
                             },
-                            underline: SizedBox(), // Remove the default underline
-                            icon: Icon(
-                              Icons.chevron_right, // Chevron right icon
-                              color: Colors.green, // Icon color
-                            ),
-                            items: <String>['Sort', 'Option 1', 'Option 2']
-                                .map<DropdownMenuItem<String>>((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(
-                                  value,
-                                  style: TextStyle(color: Colors.black, fontSize: 12.0), // Text color (black)
+                            icon: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30.0),
+                                border: Border.all(
+                                  color: Colors.green,
+                                  width: 1.0,
                                 ),
-                              );
-                            }).toList(),
+                              ),
+                              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    "Sort",
+                                    style: TextStyle(color: Colors.black, fontSize: 12.0),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Icon(Icons.chevron_right, color: Colors.green),
+                                ],
+                              ),
+                            ),
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'week',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.business, color: Color(0xFF2E7D32)),
+                                    SizedBox(width: 10),
+                                    Text("last 7 days "),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'lastMonth',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.settings, color: Color(0xFF2E7D32)),
+                                    SizedBox(width: 10),
+                                    Text("Last Month"),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'LastQuater',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.logout, color: Color(0xFF2E7D32)),
+                                    SizedBox(width: 10),
+                                    Text("Last quater "),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'LastYear',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.logout, color: Color(0xFF2E7D32)),
+                                    SizedBox(width: 10),
+                                    Text("Last Year "),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+
                       ],
                     ),
 

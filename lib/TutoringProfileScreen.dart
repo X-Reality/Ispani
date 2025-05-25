@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:ispani/TutorBookingScreen.dart';
+
+class Tutor {
+  final String name;
+  final String subject;
+  final String bio;
+
+  Tutor({
+    required this.name,
+    required this.subject,
+    required this.bio,
+  });
+}
 
 class TutorProfileScreen extends StatelessWidget {
+  final Tutor tutor; // Accept Tutor data via constructor
+
+  TutorProfileScreen({required this.tutor});
+
   void _showIntroVideo(BuildContext context) {
     final videoId = YoutubePlayer.convertUrlToId("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 
@@ -81,11 +98,11 @@ class TutorProfileScreen extends StatelessWidget {
 
           // Name and title
           Text(
-            "Khanyisile Jackson",
+            tutor.name,
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 4),
-          Text("Expert Tutor | 5+ Years Experience"),
+          Text("${tutor.subject} | 5+ Years Experience"),
 
           SizedBox(height: 16),
 
@@ -93,8 +110,7 @@ class TutorProfileScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
-              "Hi! I'm Khanyisile, a passionate tutor with over 5 years of experience in mobile and web development. "
-                  "My goal is to help you unlock your full potential through personalized, engaging, and practical lessons.",
+              tutor.bio,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.black87),
             ),
@@ -120,14 +136,20 @@ class TutorProfileScreen extends StatelessWidget {
             ),
           ),
 
-
           Spacer(),
 
           // Book Button
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TutorBookingForm(tutorName: tutor.name),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green[200],
                 padding: EdgeInsets.symmetric(vertical: 15),
@@ -136,7 +158,7 @@ class TutorProfileScreen extends StatelessWidget {
                 ),
                 minimumSize: Size(double.infinity, 50),
               ),
-              child: Text("Book a Lesson", style: TextStyle(fontSize: 18,color: Colors.white)),
+              child: Text("Book a Lesson", style: TextStyle(fontSize: 18, color: Colors.white)),
             ),
           ),
         ],
