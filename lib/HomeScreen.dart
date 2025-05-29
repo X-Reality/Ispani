@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ispani/BookingCalendarScreen.dart';
 import 'package:ispani/GroupsScreen.dart';
 import 'package:ispani/MessagesScreen.dart';
 import 'package:ispani/ProfileScreen.dart';
@@ -335,11 +336,8 @@ class HomeTabScreen extends StatelessWidget {
   Widget _buildServiceItems(BuildContext context) {
     final services = [
       "Book a Tutor",
-      "Groups",
-      "Hobbies",
-      "Games",
-      "Marketplace",
-      "Jobs"
+      "calendar"
+
     ];
 
     return Wrap(
@@ -347,7 +345,7 @@ class HomeTabScreen extends StatelessWidget {
       runSpacing: 10,
       children: services.map((service) {
         return SizedBox(
-          width: 120,
+          width: 180,
           height: 100,
           child: GestureDetector(
             onTap: () {
@@ -355,6 +353,14 @@ class HomeTabScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => TutorsScreen()),
+                );
+              }
+              else if(service == "calendar"){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BookingCalendarScreen(),
+                  ),
                 );
               }
             },
