@@ -1,31 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:ispani/Controllers/Theme_provider.dart';
+import 'package:ispani/Controllers/DisplaySettingsProvider.dart';
 import 'SplashScreen.dart';
-import 'WelcomeScreen.dart';
-import 'WelcomeScreen2.dart';
-import 'HomeScreen.dart';
-
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => DisplaySettingsProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final displaySettings = Provider.of<DisplaySettingsProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'My Flutter App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const SplashScreen(), // Ensure the class name matches the imported file
+      themeMode: themeProvider.currentTheme,
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaleFactor: displaySettings.fontSize),
+          child: child!,
+        );
+      },
+      home: const SplashScreen(),
     );
   }
 }

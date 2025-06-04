@@ -1,4 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:ispani/ProfileScreen.dart';
+import 'package:ispani/SettingScreens/ChangePasswordScreen.dart';
+import 'package:ispani/SettingScreens/PrivacyPolicyScreen.dart';
+import 'package:ispani/SettingScreens/SecuritySettingsScreen.dart';
+import 'package:provider/provider.dart';
+import 'package:ispani/Controllers/Theme_provider.dart';
+import 'package:ispani/SettingScreens/ThemeScreen.dart';
+
+import 'SettingScreens/DisplaySettingsScreen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -8,11 +17,11 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
+
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0.5,
       ),
-      backgroundColor: Colors.grey[100],
+
       body: ListView(
         children: [
           _buildSectionTitle("Account"),
@@ -20,14 +29,25 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.person,
             title: "Edit Profile",
             description: "Update your name, photo, and personal details",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>  ProfileScreen()),
+              );
+            },
           ),
           _buildListTile(
             icon: Icons.lock,
             title: "Change Password",
             description: "Set a new secure password for your account",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+              );
+            },
           ),
+
           _buildListTile(
             icon: Icons.payment,
             title: "Payment Methods",
@@ -44,12 +64,30 @@ class SettingsScreen extends StatelessWidget {
             onTap: () {},
           ),
           _buildListTile(
+            icon: Icons.font_download,
+            title: "Display settings",
+
+            description: "Change display settings",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DisplaySettingsScreen()),
+              );
+            },
+          ),
+          _buildListTile(
             icon: Icons.brightness_6,
             title: "Theme",
-            subtitle: "Light",
+
             description: "Switch between light and dark modes",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ThemeScreen()),
+              );
+            },
           ),
+
 
           _buildSectionTitle("Notifications"),
           _buildSwitchTile(
@@ -72,13 +110,23 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.shield,
             title: "Privacy Policy",
             description: "Read how we protect your data",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PolicySettingsScreen()),
+              );
+            },
           ),
           _buildListTile(
             icon: Icons.security,
             title: "Security Settings",
             description: "Control your login and verification settings",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SecuritySettingsScreen()),
+              );
+            },
           ),
           _buildListTile(
             icon: Icons.delete_forever,

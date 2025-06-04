@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:ispani/BookingCalendarScreen.dart';
 
 class StudentBookingCalendarScreen extends StatefulWidget {
   @override
@@ -71,7 +72,10 @@ class _StudentBookingCalendarScreenState extends State<StudentBookingCalendarScr
               Row(
                   children: [
                     IconButton(onPressed: (){}, icon: Icon(Icons.search)),
-                    IconButton(onPressed: (){}, icon: Icon(Icons.sort))
+                    IconButton(onPressed: (){
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (context) => BookingCalendarScreen()));
+                    }, icon: Icon(Icons.sort))
                   ]
 
               )

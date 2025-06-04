@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:ispani/Forgotpassword.dart';
 import 'package:ispani/HomeScreen.dart';
 import 'package:ispani/SignUp.dart';
-import 'package:ispani/TutorHomeScreen.dart'; // Add this import
-
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: LoginScreen(),
-  ));
-}
+import 'package:ispani/TutorHomeScreen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,20 +20,47 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
 
+  final LocalAuthentication auth = LocalAuthentication();
+
   void _showSnackbar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
 
+  Future<bool> _authenticateWithBiometrics() async {
+    try {
+      final bool canAuthenticate = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+
+      if (!canAuthenticate) return false;
+
+      return await auth.authenticate(
+        localizedReason: 'Authenticate to login',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+    } catch (e) {
+      print("Biometric auth error: $e");
+      return false;
+    }
+  }
+
   Future<void> _handleLogin(Widget screen, String message) async {
     if (_formKey.currentState!.validate()) {
+      final success = await _authenticateWithBiometrics();
+      if (!success) {
+        _showSnackbar("Biometric authentication failed");
+        return;
+      }
+
       _showSnackbar(message);
       setState(() {
         _isLoading = true;
       });
 
-      await Future.delayed(Duration(seconds: 1, milliseconds: 500));
+      await Future.delayed(Duration(milliseconds: 1500));
 
       setState(() {
         _isLoading = false;
@@ -60,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SingleChildScrollView(
             child: Column(
               children: [
-                // Background Image
+                // Background image
                 Container(
                   width: double.infinity,
                   height: 300,
@@ -76,35 +97,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 Transform.translate(
                   offset: Offset(0, -50),
                   child: Container(
-                    width: double.infinity,
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 10,
-                          offset: Offset(0, -4),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -4))],
                     ),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         children: [
-                          Text(
-                            'Welcome Back',
-                            style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold),
-                          ),
+                          Text('Welcome Back', style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold)),
                           SizedBox(height: 10),
                           Text('Please enter your credentials to continue.'),
                           SizedBox(height: 20),
 
-                          // Email Field
+                          // Email
                           TextFormField(
                             controller: _emailController,
                             decoration: InputDecoration(
@@ -115,17 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               fillColor: Colors.white,
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Email is required";
-                              } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                                return "Enter a valid email";
-                              }
+                              if (value == null || value.isEmpty) return "Email is required";
+                              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return "Enter a valid email";
                               return null;
                             },
                           ),
                           SizedBox(height: 20),
 
-                          // Password Field
+                          // Password
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
@@ -137,11 +142,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               fillColor: Colors.white,
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return "Password is required";
-                              } else if (value.length < 6) {
-                                return "Password must be at least 6 characters";
-                              }
+                              if (value == null || value.isEmpty) return "Password is required";
+                              if (value.length < 6) return "Password must be at least 6 characters";
                               return null;
                             },
                           ),
@@ -154,20 +156,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 children: [
                                   Checkbox(
                                     value: isChecked,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        isChecked = value!;
-                                      });
-                                    },
+                                    onChanged: (value) => setState(() => isChecked = value!),
                                   ),
                                   Text("Remember Me"),
                                 ],
                               ),
                               InkWell(
-                                onTap: () {
-                                  Navigator.push(context,
-                                      MaterialPageRoute(builder: (context) => Forgotpassword()));
-                                },
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => Forgotpassword()),
+                                ),
                                 child: Text(
                                   'Forgot Password?',
                                   style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
@@ -177,21 +175,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           SizedBox(height: 30),
 
-                          // Login Button with GestureDetector
+                          // Login
                           GestureDetector(
                             onTap: () => _handleLogin(HomeScreen(), 'Logging in...'),
                             onDoubleTap: () => _handleLogin(TutorHomeScreen(), 'Logging in as tutor...'),
                             child: ElevatedButton(
-                              onPressed: null, // Disabled
+                              onPressed: null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Color.fromARGB(255, 147, 182, 138),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 minimumSize: Size(double.infinity, 50),
                               ),
-                              child: Text(
-                                'Login',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                              ),
+                              child: Text('Login', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                             ),
                           ),
                           SizedBox(height: 20),
@@ -202,12 +197,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               Text("Don't have an account? "),
                               InkWell(
-                                onTap: () {
-                                  Navigator.push(context,
-                                      MaterialPageRoute(builder: (context) => SignupScreen()));
-                                },
-                                child: Text('Sign up',
-                                    style: TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => SignupScreen()),
+                                ),
+                                child: Text('Sign up', style: TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
                               ),
                             ],
                           ),
@@ -228,67 +222,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           SizedBox(height: 36),
 
-                          // Facebook Login
-                          ElevatedButton(
-                            onPressed: () {},
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: BorderSide(color: Colors.grey),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              minimumSize: Size(double.infinity, 50),
-                              alignment: Alignment.centerLeft,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.facebook_outlined, color: Colors.black),
-                                SizedBox(width: 10),
-                                Text("Sign in with Facebook", style: TextStyle(color: Colors.black)),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 16),
-
-                          // Google Login
-                          ElevatedButton(
-                            onPressed: () {},
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: BorderSide(color: Colors.grey),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              minimumSize: Size(double.infinity, 50),
-                              alignment: Alignment.centerLeft,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.face, color: Colors.black),
-                                SizedBox(width: 10),
-                                Text("Sign in with Google", style: TextStyle(color: Colors.black)),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 16),
-
-                          // Apple Login
-                          ElevatedButton(
-                            onPressed: () {},
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: BorderSide(color: Colors.grey),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              minimumSize: Size(double.infinity, 50),
-                              alignment: Alignment.centerLeft,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.apple, color: Colors.black),
-                                SizedBox(width: 10),
-                                Text("Sign in with Apple", style: TextStyle(color: Colors.black)),
-                              ],
-                            ),
-                          ),
+                          // Social Logins (placeholders)
+                          _socialLoginButton(Icons.facebook_outlined, "Sign in with Facebook"),
+                          _socialLoginButton(Icons.face, "Sign in with Google"),
+                          _socialLoginButton(Icons.apple, "Sign in with Apple"),
                           SizedBox(height: 30),
                         ],
                       ),
@@ -299,13 +236,36 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Spinner Overlay
           if (_isLoading)
             Container(
               color: Colors.black38,
               child: Center(child: CircularProgressIndicator()),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _socialLoginButton(IconData icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: ElevatedButton(
+        onPressed: () {},
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: BorderSide(color: Colors.grey),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          minimumSize: Size(double.infinity, 50),
+          alignment: Alignment.centerLeft,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.black),
+            SizedBox(width: 10),
+            Text(label, style: TextStyle(color: Colors.black)),
+          ],
+        ),
       ),
     );
   }
