@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+
       body: _selectedIndex == 2 ? Container() : _screens[_selectedIndex],
       bottomNavigationBar: CustomBottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -130,7 +130,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
       onTap: onTap,
       selectedItemColor: Color.fromARGB(255, 147, 182, 138),
       unselectedItemColor: Colors.grey,
-      backgroundColor: Colors.white,
+
       items: [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
@@ -159,7 +159,7 @@ class HomeTabScreen extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: "Search",
                   filled: true,
-                  fillColor: Colors.grey[200],
+
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
@@ -353,7 +353,7 @@ class HomeTabScreen extends StatelessWidget {
               }
             },
             child: Card(
-              color: Colors.white,
+
               child: Center(child:Padding(padding: EdgeInsets.all(10), child:Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

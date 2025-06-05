@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:timeline_tile/timeline_tile.dart';
 import 'package:ispani/Login.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const Welcomescreen3());
@@ -11,6 +11,20 @@ class Welcomescreen3 extends StatefulWidget {
   @override
   State<Welcomescreen3> createState() => _Welcomescreen3State();
 }
+Future<bool> hasSeenWelcomeScreens() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('welcome_seen') ?? false;
+}
+void completeWelcomeScreens(BuildContext context) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('welcome_seen', true);
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => LoginScreen()),
+  );
+}
+
 
 class _Welcomescreen3State extends State<Welcomescreen3> {
   @override
@@ -52,8 +66,13 @@ class _Welcomescreen3State extends State<Welcomescreen3> {
                     ),
                   ),
                   SizedBox(height: 180,),
-                  ElevatedButton(onPressed: () {
-                    Navigator.push(context,MaterialPageRoute(builder: (context) => LoginScreen()),);
+                  ElevatedButton(onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('welcome_seen', true);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => LoginScreen()),
+                    );
                   },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color.fromARGB(255, 147, 182, 138), // Change background color

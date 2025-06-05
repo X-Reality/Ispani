@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ispani/Login.dart';
 import 'package:timeline_tile/timeline_tile.dart';
 import 'package:ispani/WelcomeScreen3.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 void main() {
   runApp(const Welcomescreen2());
@@ -12,7 +14,10 @@ class Welcomescreen2 extends StatefulWidget {
   @override
   State<Welcomescreen2> createState() => _Welcomescreen2State();
 }
-
+Future<bool> hasSeenWelcomeScreens() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('welcome_seen') ?? false;
+}
 class _Welcomescreen2State extends State<Welcomescreen2> {
   @override
   Widget build(BuildContext context) {

@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:ispani/WelcomeScreen2.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+
+
 
 void main() {
   runApp(const WelcomeScreen());
 }
 
+Future<bool> hasSeenWelcomeScreens() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('welcome_seen') ?? false;
+}
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 

@@ -38,10 +38,10 @@ class MessagesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+
       appBar: AppBar(
         title: Text("Messages"),
-        backgroundColor: Colors.white,
+
       ),
       body: ListView.builder(
         itemCount: messages.length,

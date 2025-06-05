@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:ispani/De-registration.dart';
 import 'package:ispani/ProfileScreen.dart';
+import 'package:ispani/SettingScreens/About.dart';
 import 'package:ispani/SettingScreens/ChangePasswordScreen.dart';
+import 'package:ispani/SettingScreens/ContactsuppportScreen.dart';
+import 'package:ispani/SettingScreens/FeedbackScreen.dart';
+import 'package:ispani/SettingScreens/HelpsFaqsScreen.dart';
 import 'package:ispani/SettingScreens/PrivacyPolicyScreen.dart';
 import 'package:ispani/SettingScreens/SecuritySettingsScreen.dart';
 import 'package:provider/provider.dart';
@@ -132,7 +137,12 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.delete_forever,
             title: "Delete Account",
             description: "Permanently remove your account and data",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => DeregistrationScreen()),
+              );
+            },
           ),
 
           _buildSectionTitle("Support"),
@@ -140,19 +150,34 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.help_outline,
             title: "Help & FAQs",
             description: "Find answers to common questions",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HelpFaqScreen()),
+              );
+            },
           ),
           _buildListTile(
             icon: Icons.feedback_outlined,
             title: "Send Feedback",
             description: "Tell us how we can improve the app",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+              );
+            },
           ),
           _buildListTile(
             icon: Icons.support_agent,
             title: "Contact Support",
             description: "Reach out for technical or account help",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ContactSupportScreen()),
+              );
+            },
           ),
 
           _buildSectionTitle("About"),
@@ -161,7 +186,12 @@ class SettingsScreen extends StatelessWidget {
             title: "About the App",
             subtitle: "Version 1.0.0",
             description: "Learn about this tutoring platform",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
+              );
+            },
           ),
           _buildListTile(
             icon: Icons.logout,

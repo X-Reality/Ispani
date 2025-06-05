@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ispani/TutorHomeScreen.dart';
+import 'package:ispani/HomeScreen.dart';
 import 'TutoringProfileScreen.dart';
 import 'package:ispani/GroupsScreen.dart';
 import 'package:ispani/MessagesScreen.dart';
@@ -21,7 +21,7 @@ class _TutorsScreenState extends State<TutorsScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    TutorHomeScreen(),
+    HomeScreen(),
     MessagesScreen(),
     Container(), // Explore
     GroupsScreen(),
@@ -78,6 +78,10 @@ class _TutorsScreenState extends State<TutorsScreen> {
       setState(() {
         _selectedIndex = index;
       });
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => _screens[index]),
+      );
     }
   }
 
@@ -110,26 +114,22 @@ class _TutorsScreenState extends State<TutorsScreen> {
               ),
               Expanded(
                 child: ListView(
-                  children: [
+                  children: const [
                     ListTile(
-                      leading: const Icon(Icons.trending_up),
-                      title: const Text("Trending"),
-                      onTap: () {},
+                      leading: Icon(Icons.trending_up),
+                      title: Text("Trending"),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.new_releases),
-                      title: const Text("Latest"),
-                      onTap: () {},
+                      leading: Icon(Icons.new_releases),
+                      title: Text("Latest"),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.category),
-                      title: const Text("Categories"),
-                      onTap: () {},
+                      leading: Icon(Icons.category),
+                      title: Text("Categories"),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.people),
-                      title: const Text("Communities"),
-                      onTap: () {},
+                      leading: Icon(Icons.people),
+                      title: Text("Communities"),
                     ),
                   ],
                 ),
@@ -149,12 +149,12 @@ class _TutorsScreenState extends State<TutorsScreen> {
         : allTutors.where((tutor) => tutor['tags'].contains(selectedCategory)).toList();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text('Tutors', style: TextStyle(color: Colors.black)),
+
+        title: const Text('Tutors', ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert, color: Colors.black)),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert,)),
         ],
       ),
       body: Column(
@@ -218,11 +218,11 @@ class _TutorsScreenState extends State<TutorsScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey, width: 1),
-        color: Colors.white,
+
       ),
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        color: Colors.white,
+
         elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -314,7 +314,9 @@ class _TutorsScreenState extends State<TutorsScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => TutorProfileScreen(tutor: Tutor(name: "name", subject: "", bio: "bio"),),
+                            builder: (context) => TutorProfileScreen(
+                              tutor: Tutor(name: tutor['name'], subject: tutor['subject'], bio: tutor['description']),
+                            ),
                           ),
                         );
                       },
@@ -350,11 +352,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
-  const CustomBottomNavigationBar({
-    required this.currentIndex,
-    required this.onTap,
-    super.key,
-  });
+  const CustomBottomNavigationBar({super.key, required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -364,23 +362,12 @@ class CustomBottomNavigationBar extends StatelessWidget {
       onTap: onTap,
       selectedItemColor: const Color.fromARGB(255, 147, 182, 138),
       unselectedItemColor: Colors.grey,
-      backgroundColor: Colors.white,
-      items: [
-        const BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        const BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
-        BottomNavigationBarItem(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 147, 182, 138),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.explore, color: Colors.white),
-          ),
-          label: "",
-        ),
-        const BottomNavigationBarItem(icon: Icon(Icons.supervised_user_circle), label: "Groups"),
-        const BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Messages'),
+        BottomNavigationBarItem(icon: Icon(Icons.explore), label: 'Explore'),
+        BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Groups'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }

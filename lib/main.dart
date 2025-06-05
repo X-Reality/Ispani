@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:ispani/Controllers/Theme_provider.dart';
 import 'package:ispani/Controllers/DisplaySettingsProvider.dart';
 import 'SplashScreen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(

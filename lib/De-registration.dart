@@ -9,8 +9,8 @@ class _DeregistrationScreenState extends State<DeregistrationScreen> {
   final TextEditingController _reasonController = TextEditingController();
   bool _confirmDelete = false;
 
-  final Color nowishinGreen = Color(0xFF2E7D32); // Replace with exact green if different
-  final Color backgroundGray = Color(0xFFF5F5F5);
+// Replace with exact green if different
+
 
   void _handleDeregistration() {
     if (_confirmDelete) {
@@ -28,9 +28,9 @@ class _DeregistrationScreenState extends State<DeregistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundGray,
+
       appBar: AppBar(
-        backgroundColor: Colors.white,
+
         title: Text("Deregister Account"),
       ),
       body: SingleChildScrollView(
@@ -40,7 +40,7 @@ class _DeregistrationScreenState extends State<DeregistrationScreen> {
           children: [
             Text(
               "We're sorry to see you go.",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, ),
             ),
             SizedBox(height: 20),
             Text(
@@ -51,7 +51,7 @@ class _DeregistrationScreenState extends State<DeregistrationScreen> {
                   "• We may retain minimal data for legal or regulatory purposes in accordance with our privacy policy.\n"
                   "• If you signed in using a business account, ensure you've handled all business-related responsibilities before proceeding.\n\n"
                   "For more details, please review our Privacy Policy and Terms of Service.",
-              style: TextStyle(fontSize: 14, color: Colors.black87),
+              style: TextStyle(fontSize: 14, ),
             ),
 
             SizedBox(height: 20),
@@ -61,7 +61,7 @@ class _DeregistrationScreenState extends State<DeregistrationScreen> {
               decoration: InputDecoration(
                 labelText: "Reason for leaving (optional)",
                 filled: true,
-                fillColor: Colors.white,
+
                 border: OutlineInputBorder(),
               ),
             ),
@@ -70,13 +70,13 @@ class _DeregistrationScreenState extends State<DeregistrationScreen> {
 
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+
                 borderRadius: BorderRadius.circular(8),
               ),
               child: CheckboxListTile(
                 title: Text("I understand this action is permanent."),
                 value: _confirmDelete,
-                activeColor: nowishinGreen,
+
                 onChanged: (value) {
                   setState(() {
                     _confirmDelete = value!;
