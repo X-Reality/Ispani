@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -16,6 +18,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController serviceController = TextEditingController();
   final TextEditingController aboutController = TextEditingController();
 
+  final ImagePicker _picker = ImagePicker(); 
+  File? bannerImage;
+  File? profileImage;
+
   void _addSkill() {
     if (skillController.text.isNotEmpty) {
       setState(() {
@@ -30,6 +36,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         services.add(serviceController.text);
         serviceController.clear();
+      });
+    }
+  }
+
+  Future<void> _pickImage(bool isBanner) async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        if (isBanner) {
+          bannerImage = File(pickedFile.path);
+        } else {
+          profileImage = File(pickedFile.path);
+        }
       });
     }
   }
@@ -139,17 +159,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  height: 150,
-                  width: double.infinity,
-                  color: Colors.blueGrey,
+                GestureDetector(
+                  onTap: () => _pickImage(true),
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey,
+                      image: bannerImage != null
+                          ? DecorationImage(
+                        image: FileImage(bannerImage!),
+                        fit: BoxFit.cover,
+                      )
+                          : null,
+                    ),
+                    child: bannerImage == null
+                        ? Center(
+                      child: Icon(Icons.camera_alt, color: Colors.white54, size: 40),
+                    )
+                        : null,
+                  ),
                 ),
                 Positioned(
                   top: 80,
-                  left: MediaQuery.of(context).size.width / 2 - 80,
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundImage: AssetImage('assets/profile.jpg'),
+                  left: MediaQuery.of(context).size.width / 2 - 60,
+                  child: GestureDetector(
+                    onTap: () => _pickImage(false),
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundImage: profileImage != null
+                          ? FileImage(profileImage!)
+                          : AssetImage('assets/profile.jpg') as ImageProvider,
+                      child: profileImage == null
+                          ? Icon(Icons.camera_alt, size: 30, color: Colors.white70)
+                          : null,
+                    ),
                   ),
                 ),
               ],

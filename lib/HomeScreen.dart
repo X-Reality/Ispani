@@ -134,19 +134,9 @@ class CustomBottomNavigationBar extends StatelessWidget {
       items: [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
-        BottomNavigationBarItem(
-          icon: Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Color.fromARGB(255, 147, 182, 138),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.explore, color: Colors.white),
-          ),
-          label: "",
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.timer_outlined), label: "Updates"),
         BottomNavigationBarItem(icon: Icon(Icons.supervised_user_circle), label: "Groups"),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), label: "Profile"),
       ],
     );
   }
@@ -336,8 +326,6 @@ class HomeTabScreen extends StatelessWidget {
   Widget _buildServiceItems(BuildContext context) {
     final services = [
       "Book a Tutor",
-      "calendar"
-
     ];
 
     return Wrap(
@@ -345,8 +333,8 @@ class HomeTabScreen extends StatelessWidget {
       runSpacing: 10,
       children: services.map((service) {
         return SizedBox(
-          width: 180,
-          height: 100,
+          width: 580,
+          height: 80,
           child: GestureDetector(
             onTap: () {
               if (service == "Book a Tutor") {
@@ -366,7 +354,23 @@ class HomeTabScreen extends StatelessWidget {
             },
             child: Card(
               color: Colors.white,
-              child: Center(child: Text(service)),
+              child: Center(child:Padding(padding: EdgeInsets.all(10), child:Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+
+                      Icon(Icons.book_outlined),
+                      SizedBox(width: 5,),
+                      Text(service),
+                    ],
+                  ),
+                  Icon(Icons.chevron_right),
+
+
+
+                ],) ,)
+                ,),
             ),
           ),
         );

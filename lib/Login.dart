@@ -179,16 +179,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           GestureDetector(
                             onTap: () => _handleLogin(HomeScreen(), 'Logging in...'),
                             onDoubleTap: () => _handleLogin(TutorHomeScreen(), 'Logging in as tutor...'),
-                            child: ElevatedButton(
-                              onPressed: null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color.fromARGB(255, 147, 182, 138),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                minimumSize: Size(double.infinity, 50),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Color.fromARGB(255, 147, 182, 138),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Text('Login', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                              padding: EdgeInsets.symmetric(vertical: 15),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Login',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
                             ),
                           ),
+
                           SizedBox(height: 20),
 
                           // Sign up

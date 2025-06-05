@@ -3,8 +3,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:ispani/SettingScreen.dart';
 import 'package:ispani/StudentBookingScreen.dart';
 import 'package:ispani/UpcomingClasseScreen.dart';
-import 'RescheduleScreen.dart';
-import 'De-registration.dart';
+import 'package:ispani/RescheduleScreen.dart';
+import 'package:ispani/De-registration.dart';
+import 'package:ispani/GroupsScreen.dart';
+import 'package:ispani/MessagesScreen.dart';
+import 'package:ispani/ProfileScreen.dart';
+
+
 
 // Custom Bottom Navigation Bar
 class CustomBottomNavigationBar extends StatelessWidget {
@@ -91,6 +96,16 @@ class _TutorHomeScreenState extends State<TutorHomeScreen> with SingleTickerProv
       'date': '2025-05-04',
       'type': 'High School Learner',
     },
+  ];
+  int _selectedIndex = 0;
+
+  // Screens for each tab
+  final List<Widget> _screens = [
+    TutorHomeScreen(),
+    MessagesScreen(),
+    Container(), // Placeholder for Explore, handled separately
+    GroupsScreen(),
+    ProfileScreen(),
   ];
 
   @override
