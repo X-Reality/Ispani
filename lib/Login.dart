@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ispani/Forgotpassword.dart';
 import 'package:ispani/HomeScreen.dart';
 import 'package:ispani/SignUp.dart';
@@ -17,60 +19,129 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final LocalAuthentication auth = LocalAuthentication();
+  final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
 
   bool _isLoading = false;
 
-  final LocalAuthentication auth = LocalAuthentication();
-
   void _showSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _authenticateWithBiometrics() async {
     try {
       final bool canAuthenticate = await auth.canCheckBiometrics || await auth.isDeviceSupported();
-
       if (!canAuthenticate) return false;
 
       return await auth.authenticate(
         localizedReason: 'Authenticate to login',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
+        options: const AuthenticationOptions(biometricOnly: true, stickyAuth: true),
       );
     } catch (e) {
-      print("Biometric auth error: $e");
+      debugPrint("Biometric auth error: $e");
       return false;
     }
   }
 
-  Future<void> _handleLogin(Widget screen, String message) async {
+  Future<bool> _checkFallbackPIN() async {
+    final storedPin = await secureStorage.read(key: 'fallback_pin');
+
+    if (storedPin == null) {
+      _showSnackbar("Biometric failed and no fallback PIN found.");
+      return false;
+    }
+
+    String? userPin = await _showPinDialog();
+    return userPin == storedPin;
+  }
+
+  Future<String?> _showPinDialog() async {
+    String? pin;
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final TextEditingController pinController = TextEditingController();
+        return AlertDialog(
+          title: const Text('Enter Fallback PIN'),
+          content: TextField(
+            controller: pinController,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 6,
+            decoration: const InputDecoration(hintText: 'Enter your 6-digit PIN'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(), // cancel
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                pin = pinController.text;
+                Navigator.of(context).pop(pin);
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleLogin(Widget screen, String message, String role) async {
     if (_formKey.currentState!.validate()) {
-      final success = await _authenticateWithBiometrics();
-      if (!success) {
-        _showSnackbar("Biometric authentication failed");
-        return;
+      final bioSuccess = await _authenticateWithBiometrics();
+
+      if (!bioSuccess) {
+        final fallbackSuccess = await _checkFallbackPIN();
+        if (!fallbackSuccess) {
+          _showSnackbar("Authentication failed.");
+          return;
+        }
       }
 
       _showSnackbar(message);
-      setState(() {
-        _isLoading = true;
-      });
 
-      await Future.delayed(Duration(milliseconds: 1500));
+      setState(() => _isLoading = true);
 
-      setState(() {
-        _isLoading = false;
-      });
+      // Save login state and role in SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+      await prefs.setString('userRole', role);
 
-      Navigator.push(
+      await Future.delayed(const Duration(milliseconds: 1500));
+      setState(() => _isLoading = false);
+
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => screen),
       );
     }
+  }
+
+  Widget _socialLoginButton(IconData icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: ElevatedButton(
+        onPressed: () {},
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: Colors.grey),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          minimumSize: const Size(double.infinity, 50),
+          alignment: Alignment.centerLeft,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.black),
+            const SizedBox(width: 10),
+            Text(label, style: const TextStyle(color: Colors.black)),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -81,24 +152,21 @@ class _LoginScreenState extends State<LoginScreen> {
           SingleChildScrollView(
             child: Column(
               children: [
-                // Background image
                 Container(
                   width: double.infinity,
                   height: 300,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     image: DecorationImage(
                       image: AssetImage("assets/3203866.jpg"),
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
-
-                // Login Form
                 Transform.translate(
-                  offset: Offset(0, -50),
+                  offset: const Offset(0, -50),
                   child: Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                       boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -4))],
@@ -107,10 +175,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          Text('Welcome Back', style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 10),
-                          Text('Please enter your credentials to continue.'),
-                          SizedBox(height: 20),
+                          const Text('Welcome Back', style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          const Text('Please enter your credentials to continue.'),
+                          const SizedBox(height: 20),
 
                           // Email
                           TextFormField(
@@ -128,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
                           // Password
                           TextFormField(
@@ -147,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          SizedBox(height: 10),
+                          const SizedBox(height: 10),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -158,35 +226,35 @@ class _LoginScreenState extends State<LoginScreen> {
                                     value: isChecked,
                                     onChanged: (value) => setState(() => isChecked = value!),
                                   ),
-                                  Text("Remember Me"),
+                                  const Text("Remember Me"),
                                 ],
                               ),
                               InkWell(
                                 onTap: () => Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => Forgotpassword()),
+                                  MaterialPageRoute(builder: (context) => const Forgotpassword()),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'Forgot Password?',
                                   style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
                           ),
-                          SizedBox(height: 30),
+                          const SizedBox(height: 30),
 
-                          // Login
+                          // Login button with tap and double tap
                           GestureDetector(
-                            onTap: () => _handleLogin(HomeScreen(), 'Logging in...'),
-                            onDoubleTap: () => _handleLogin(TutorHomeScreen(), 'Logging in as tutor...'),
+                            onTap: () => _handleLogin( HomeScreen(), 'Logging in as student...', 'student'),
+                            onDoubleTap: () => _handleLogin(const TutorHomeScreen(), 'Logging in as tutor...', 'tutor'),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Color.fromARGB(255, 147, 182, 138),
+                                color: const Color.fromARGB(255, 147, 182, 138),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: EdgeInsets.symmetric(vertical: 15),
+                              padding: const EdgeInsets.symmetric(vertical: 15),
                               alignment: Alignment.center,
-                              child: Text(
+                              child: const Text(
                                 'Login',
                                 style: TextStyle(
                                   color: Colors.white,
@@ -197,44 +265,46 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
 
-                          SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                          // Sign up
+                          // Sign up link
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Don't have an account? "),
+                              const Text("Don't have an account? "),
                               InkWell(
                                 onTap: () => Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => SignupScreen()),
+                                  MaterialPageRoute(builder: (context) => const SignupScreen()),
                                 ),
-                                child: Text('Sign up', style: TextStyle(color: Color.fromARGB(255, 147, 182, 138))),
+                                child: const Text(
+                                  'Sign up',
+                                  style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
+                                ),
                               ),
                             ],
                           ),
-                          SizedBox(height: 30),
+                          const SizedBox(height: 30),
 
-                          // OR Divider
+                          // OR divider
                           Stack(
-                            children: [
+                            children: const [
                               Divider(),
                               Center(
-                                child: Container(
+                                child: SizedBox(
                                   width: 60,
-                                  color: Colors.white,
                                   child: Text('OR', textAlign: TextAlign.center),
                                 ),
                               ),
                             ],
                           ),
-                          SizedBox(height: 36),
+                          const SizedBox(height: 36),
 
-                          // Social Logins (placeholders)
+                          // Social login buttons placeholders
                           _socialLoginButton(Icons.facebook_outlined, "Sign in with Facebook"),
                           _socialLoginButton(Icons.face, "Sign in with Google"),
                           _socialLoginButton(Icons.apple, "Sign in with Apple"),
-                          SizedBox(height: 30),
+                          const SizedBox(height: 30),
                         ],
                       ),
                     ),
@@ -247,33 +317,9 @@ class _LoginScreenState extends State<LoginScreen> {
           if (_isLoading)
             Container(
               color: Colors.black38,
-              child: Center(child: CircularProgressIndicator()),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _socialLoginButton(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: ElevatedButton(
-        onPressed: () {},
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          side: BorderSide(color: Colors.grey),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          minimumSize: Size(double.infinity, 50),
-          alignment: Alignment.centerLeft,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.black),
-            SizedBox(width: 10),
-            Text(label, style: TextStyle(color: Colors.black)),
-          ],
-        ),
       ),
     );
   }

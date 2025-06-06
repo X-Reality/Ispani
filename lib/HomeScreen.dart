@@ -6,6 +6,8 @@ import 'package:ispani/ProfileScreen.dart';
 import 'package:ispani/SettingScreen.dart';
 import 'package:ispani/TutoringScreen.dart';
 import 'package:ispani/De-registration.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ispani/Login.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -114,6 +116,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+Future<void> logout(BuildContext context) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.clear(); // Clears all saved user data (including session tokens)
+
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (context) => LoginScreen()),
+        (route) => false, // Removes all previous routes
+  );
+}
 
 // Custom Bottom Navigation Bar
 class CustomBottomNavigationBar extends StatelessWidget {
@@ -178,7 +190,7 @@ class HomeTabScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                onSelected: (value) {
+                onSelected: (value) async {
                   switch (value) {
                     case 'business':
                       Navigator.push(
@@ -193,7 +205,7 @@ class HomeTabScreen extends StatelessWidget {
                       );
                       break;
                     case 'logout':
-                    // Handle logout
+                      await logout(context);
                       break;
                   }
                 },
