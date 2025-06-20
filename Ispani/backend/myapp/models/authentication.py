@@ -67,10 +67,11 @@ class TutorProfile(models.Model):
 class ServiceProvider(models.Model):
      user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='serviceprovider_profile')
      company_name = models.CharField(max_length=100)  
-     service = models.CharField(max_length=100)  
+     description = models.CharField(max_length=100)  
      typeofservice = models.TextField()
      qualification = models.TextField()
      interests = models.TextField()
+     hobbies=models.TextField()
 
      def __str__(self):
         return f"ServiceProvider Profile: {self.user.username}"

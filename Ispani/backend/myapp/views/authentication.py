@@ -16,16 +16,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-
 from ..models import CustomUser
 from ..serializers import UserSerializer, UserRegistrationSerializer
 
-
-logger = logging.getLogger(__name__)
-
 # ------------------- User Registration and Authentication -------------------
 stripe.api_key = settings.STRIPE_SECRET_KEY
-
 
 class SignUpView(APIView):
     permission_classes = [AllowAny]
@@ -33,26 +28,86 @@ class SignUpView(APIView):
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
+        confirm_password = request.data.get("confirm_password")
         role = request.data.get("role", "student")
-
-        if not email or not password:
-            return Response({"error": "Email and password are required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if CustomUser.objects.filter(email=email).exists():
-            return Response({"error": "Email already in use"}, status=status.HTTP_400_BAD_REQUEST)
-
-        otp = get_random_string(6, allowed_chars=string.digits)
-        cache.set(email, {'otp': otp, 'password': password, 'role': role}, timeout=300)
-
-        send_mail(
-            "Your OTP Code",
-            f"Your OTP code is {otp}. It expires in 5 minutes.",
-            "noreply@example.com",
-            [email],
-            fail_silently=False,
-        )
-
-        return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
+        
+        # Check if auth_type is provided for social auth
+        auth_type = request.data.get("auth_type", "email")  # Default to email auth
+        
+        # For regular email signup
+        if auth_type == "email":
+            # Validate required fields
+            if not email or not password or not confirm_password:
+                return Response({"error": "Email, password, and password confirmation are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate password confirmation
+            if password != confirm_password:
+                return Response({"error": "Passwords do not match"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate email uniqueness
+            if CustomUser.objects.filter(email=email).exists():
+                return Response({"error": "Email already in use"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Generate and send OTP
+            otp = get_random_string(6, allowed_chars=string.digits)
+            cache.set(email, {'otp': otp, 'password': password, 'role': role}, timeout=300)
+            
+            send_mail(
+                "Your OTP Code",
+                f"Your OTP code is {otp}. It expires in 5 minutes.",
+                "noreply@example.com",
+                [email],
+                fail_silently=False,
+            )
+            
+            return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
+        
+        # For social authentication
+        elif auth_type in ["google", "facebook", "apple"]:
+            # Handle social auth token validation
+            social_token = request.data.get("social_token")
+            
+            if not social_token:
+                return Response({"error": "Social authentication token is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Here you would validate the social token with the respective provider
+            # This is a placeholder for the actual social auth logic
+            try:
+                # Your social auth validation logic would go here
+                # For now, we'll just check if email exists
+                if CustomUser.objects.filter(email=email).exists():
+                    # For social auth, you might want to just log the user in
+                    # if their email already exists
+                    user = CustomUser.objects.get(email=email)
+                    refresh = RefreshToken.for_user(user)
+                    
+                    return Response({
+                        "message": "Social login successful",
+                        "user": UserSerializer(user).data,
+                        "token": {
+                            "refresh": str(refresh),
+                            "access": str(refresh.access_token),
+                        }
+                    }, status=status.HTTP_200_OK)
+                else:
+                    # Create a temp token for completing registration
+                    temp_token = str(uuid.uuid4())
+                    # For social auth, we don't need to store a password
+                    cache.set(temp_token, {
+                        'email': email,
+                        'role': role,
+                        'auth_type': auth_type
+                    }, timeout=600)
+                    
+                    return Response({
+                        "message": "Please complete your registration",
+                        "temp_token": temp_token,
+                        "role": role
+                    }, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": f"Social authentication failed: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"error": "Invalid authentication type"}, status=status.HTTP_400_BAD_REQUEST)
 
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
@@ -89,13 +144,22 @@ class CompleteRegistrationView(APIView):
 
         if not temp_data:
             return Response({"error": "Invalid or expired session."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        auth_type = temp_data.get('auth_type', 'email')
 
         registration_data = {
             'username': request.data.get("username"),
             'email': temp_data['email'],
-            'password': temp_data['password'],
             'role': temp_data['role']
         }
+
+        # Only set password for email registration
+        if auth_type == 'email':
+            registration_data['password'] = temp_data['password']
+        else:
+            # For social auth, generate a secure random password
+            # The user won't need this password as they'll login via social auth
+            registration_data['password'] = get_random_string(20)
 
         if temp_data['role'] == 'student':
             registration_data['student_profile'] = {
@@ -103,7 +167,7 @@ class CompleteRegistrationView(APIView):
                 'course': request.data.get("course"),
                 'hobbies': request.data.get("hobbies"),
                 'piece_jobs': request.data.get("piece_jobs"),
-                'communication_preference': request.data.get("communication_preference")
+                'institution': request.data.get("institution")
             }
         elif temp_data['role'] == 'tutor':
             registration_data['tutor_profile'] = {
@@ -118,7 +182,13 @@ class CompleteRegistrationView(APIView):
             user = serializer.save()
             cache.delete(temp_token)
 
-            authenticated_user = authenticate(username=user.username, password=temp_data['password'])
+            # For social auth, we don't need to authenticate with password
+            if auth_type == 'email':
+                authenticated_user = authenticate(username=user.username, password=temp_data['password'])
+            else:
+                # For social auth, we can just use the user object directly
+                authenticated_user = user
+
             if authenticated_user:
                 login(request, authenticated_user)
                 refresh = RefreshToken.for_user(authenticated_user)
