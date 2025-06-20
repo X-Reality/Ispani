@@ -19,12 +19,46 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>(); // Key for form validation
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
 
-  void _validateAndLogin() {
-    if (_formKey.currentState!.validate()) {
-      // Navigate if form is valid
-      Navigator.push(context,MaterialPageRoute(builder: (context) => OtpScreen()),);
+  bool _isLoading = false; // Show loading indicator during OTP send
+
+  // Simulate sending OTP to email (replace this with your real API call)
+  Future<bool> sendOtpToEmail(String email) async {
+    await Future.delayed(Duration(seconds: 2)); // simulate network delay
+    // In real app, call API here, e.g.:
+    // final response = await http.post(Uri.parse('https://yourapi/sendotp'), body: {'email': email});
+    // return response.statusCode == 200;
+    return true; // Assume success
+  }
+
+  void _validateAndSendOtp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final email = _emailController.text.trim();
+
+    bool success = await sendOtpToEmail(email);
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      // Navigate to OtpScreen, pass email
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtpScreen(email: email),
+        ),
+      );
+    } else {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send OTP. Please try again.')),
+      );
     }
   }
 
@@ -77,7 +111,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ],
                 ),
                 child: Form(
-                  key: _formKey, // Attach form key
+                  key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -90,7 +124,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        'Please enter your credentials to continue.',
+                        'Please enter your email to continue.',
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: 20),
@@ -116,58 +150,13 @@ class _SignupScreenState extends State<SignupScreen> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 20),
 
-                      // Password TextField
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: "Password",
-                          hintText: "Enter your password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Password is required";
-                          } else if (value.length < 6) {
-                            return "Password must be at least 6 characters";
-                          }
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: 20),
-
-                      // Password TextField
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: " Confirm Password",
-                          hintText: "Enter your password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return "Password is required";
-                          } else if (value.length < 6) {
-                            return "Password must be at least 6 characters";
-                          }
-                          return null;
-                        },
-                      ),
                       SizedBox(height: 30),
-                      // Login Button
-                      ElevatedButton(
-                        onPressed: _validateAndLogin, // Validate form on click
+
+                      _isLoading
+                          ? CircularProgressIndicator()
+                          : ElevatedButton(
+                        onPressed: _validateAndSendOtp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color.fromARGB(255, 147, 182, 138),
                           shape: RoundedRectangleBorder(
@@ -176,7 +165,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           minimumSize: Size(double.infinity, 50),
                         ),
                         child: Text(
-                          'Create Account',
+                          'Send OTP',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -184,17 +173,24 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         ),
                       ),
+
                       SizedBox(height: 270),
                       Center(
-                        child:  Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text('Have an account, '),
                             InkWell(
-                              onTap: (){
-                                Navigator.push(context,MaterialPageRoute(builder: (context) => LoginScreen()),);
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                                );
                               },
-                              child: Text('Log in',style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),),
+                              child: Text(
+                                'Log in',
+                                style: TextStyle(color: Color.fromARGB(255, 147, 182, 138)),
+                              ),
                             )
                           ],
                         ),

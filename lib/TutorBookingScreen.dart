@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:intl/intl.dart';
 import 'package:ispani/BookingData.dart';
 import 'package:ispani/BookingCalendarScreen.dart';
+import 'package:ispani/Services/paystack_service.dart';
+import 'package:ispani/api_key.dart';
 
 class TutorBookingForm extends StatefulWidget {
   final String tutorName;
@@ -15,14 +18,18 @@ class TutorBookingForm extends StatefulWidget {
 class _TutorBookingFormState extends State<TutorBookingForm> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
   String? _selectedSubject;
   String? _selectedPlatform;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  bool _isPaymentProcessing = false;
 
   final List<String> _subjects = ['Math', 'Science', 'English', 'History', 'Coding'];
   final List<String> _platforms = ['Zoom', 'Microsoft Teams'];
+
+  final PaystackService _paystackService = PaystackService(ApiKey.secretKey);
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Pick a date';
@@ -54,7 +61,61 @@ class _TutorBookingFormState extends State<TutorBookingForm> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  void _submitForm() {
+  Future<bool> _processPayment() async {
+    setState(() => _isPaymentProcessing = true);
+
+    try {
+      final reference = _generateReference();
+      final metadata = {
+        'tutor_name': widget.tutorName,
+        'subject': _selectedSubject ?? '',
+        'date': _selectedDate?.toString() ?? '',
+      };
+
+      final authorizationUrl = await _paystackService.initializeTransaction(
+        email: _emailController.text.trim(),
+        amount: 10000, // ₦100 in kobo
+        reference: reference,
+        metadata: metadata,
+      );
+
+      final paymentSuccess = await _showPaystackWebView(authorizationUrl, reference);
+
+      return paymentSuccess;
+    } catch (e) {
+      print('Payment error: $e');
+      return false;
+    } finally {
+      setState(() => _isPaymentProcessing = false);
+    }
+  }
+
+  Future<bool> _showPaystackWebView(String url, String reference) async {
+    return await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.9,
+        child: InAppWebView(
+          initialUrlRequest: URLRequest(url: WebUri(url)), // Use WebUri here
+          onLoadStop: (controller, url) async {
+            if (url?.toString().contains('callback') ?? false) {
+              Navigator.pop(context, true);
+            }
+          },
+          onLoadError: (controller, url, code, message) {
+            Navigator.pop(context, false);
+          },
+        ),
+      ),
+    ) ?? false;
+  }
+
+  String _generateReference() {
+    return 'TUTOR_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       if (_selectedDate == null || _selectedTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -63,72 +124,54 @@ class _TutorBookingFormState extends State<TutorBookingForm> {
         return;
       }
 
-      final bookingDateTime = DateTime(
-        _selectedDate!.year,
-        _selectedDate!.month,
-        _selectedDate!.day,
-        _selectedTime!.hour,
-        _selectedTime!.minute,
-      );
+      if (_emailController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please enter your email address.')),
+        );
+        return;
+      }
 
-      final newBooking = Booking(
-        tutorName: widget.tutorName,
-        dateTime: bookingDateTime,
-        subject: _selectedSubject!,
-        platform: _selectedPlatform!,
-        notes: _notesController.text,
-      );
+      final paymentSuccess = await _processPayment();
 
-      // Show confirmation dialog
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text("Booking Confirmed"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Tutor: ${widget.tutorName}"),
-              Text("Subject: $_selectedSubject"),
-              Text("Platform: $_selectedPlatform"),
-              Text("Date: ${_formatDate(_selectedDate)}"),
-              Text("Time: ${_formatTime(_selectedTime)}"),
-              if (_notesController.text.isNotEmpty)
-                Text("Notes: ${_notesController.text}"),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+      if (paymentSuccess) {
+        final bookingDateTime = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+          _selectedTime!.hour,
+          _selectedTime!.minute,
+        );
 
-                // Save booking
-                BookingData.bookings.add(newBooking);
+        final newBooking = Booking(
+          tutorName: widget.tutorName,
+          dateTime: bookingDateTime,
+          subject: _selectedSubject!,
+          platform: _selectedPlatform!,
+          notes: _notesController.text,
+        );
 
-                // Show success snackbar
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Booking successfully added!')),
-                );
+        BookingData.bookings.add(newBooking);
 
-                // Navigate to calendar
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BookingCalendarScreen(),
-                  ),
-                );
-              },
-              child: Text("OK"),
-            )
-          ],
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Payment successful! Booking confirmed.')),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => BookingCalendarScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Payment cancelled or failed.')),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -136,66 +179,100 @@ class _TutorBookingFormState extends State<TutorBookingForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Book a Tutor")),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(labelText: 'Select Subject', border: OutlineInputBorder()),
-                value: _selectedSubject,
-                items: _subjects
-                    .map((subject) => DropdownMenuItem(value: subject, child: Text(subject)))
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedSubject = value),
-                validator: (value) => value == null ? 'Please select a subject' : null,
-              ),
-              SizedBox(height: 16),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: 'Email Address',
+                      border: OutlineInputBorder(),
+                      hintText: 'Enter your email for payment receipt',
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16),
 
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(labelText: 'Select Meeting Platform', border: OutlineInputBorder()),
-                value: _selectedPlatform,
-                items: _platforms
-                    .map((platform) => DropdownMenuItem(value: platform, child: Text(platform)))
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedPlatform = value),
-                validator: (value) => value == null ? 'Please select a platform' : null,
-              ),
-              SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(labelText: 'Select Subject', border: OutlineInputBorder()),
+                    value: _selectedSubject,
+                    items: _subjects
+                        .map((subject) => DropdownMenuItem(value: subject, child: Text(subject)))
+                        .toList(),
+                    onChanged: (value) => setState(() => _selectedSubject = value),
+                    validator: (value) => value == null ? 'Please select a subject' : null,
+                  ),
+                  SizedBox(height: 16),
 
-              ListTile(
-                title: Text(_formatDate(_selectedDate)),
-                trailing: Icon(Icons.calendar_today),
-                onTap: _pickDate,
-              ),
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(labelText: 'Select Meeting Platform', border: OutlineInputBorder()),
+                    value: _selectedPlatform,
+                    items: _platforms
+                        .map((platform) => DropdownMenuItem(value: platform, child: Text(platform)))
+                        .toList(),
+                    onChanged: (value) => setState(() => _selectedPlatform = value),
+                    validator: (value) => value == null ? 'Please select a platform' : null,
+                  ),
+                  SizedBox(height: 16),
 
-              ListTile(
-                title: Text(_formatTime(_selectedTime)),
-                trailing: Icon(Icons.access_time),
-                onTap: _pickTime,
-              ),
+                  ListTile(
+                    title: Text(_formatDate(_selectedDate)),
+                    trailing: Icon(Icons.calendar_today),
+                    onTap: _pickDate,
+                  ),
 
-              TextFormField(
-                controller: _notesController,
-                decoration: InputDecoration(labelText: 'Special Notes', border: OutlineInputBorder()),
-                maxLines: 3,
-              ),
+                  ListTile(
+                    title: Text(_formatTime(_selectedTime)),
+                    trailing: Icon(Icons.access_time),
+                    onTap: _pickTime,
+                  ),
 
-              SizedBox(height: 24),
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: InputDecoration(labelText: 'Special Notes', border: OutlineInputBorder()),
+                    maxLines: 3,
+                  ),
 
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: Icon(Icons.check),
-                  label: Text('Submit Booking'),
-                  onPressed: _submitForm,
-                  style: ElevatedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 16)),
-                ),
+                  SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.check),
+                      label: Text('Submit Booking'),
+                      onPressed: _isPaymentProcessing ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: _isPaymentProcessing ? Colors.grey : Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          if (_isPaymentProcessing)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
       ),
     );
   }
